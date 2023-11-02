@@ -80,7 +80,7 @@
             ],
             "Resource": [
                 "arn:aws:iam::*:user/${aws:username}-key"
-            }
+            ]
         },
         {
             "Sid": "AllowIndividualUserToDeactivateOnlyTheirOwnMFAOnlyWhenUsingMFA",
