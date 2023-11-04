@@ -8,19 +8,19 @@ This repository contains sample AWS Identity and Access Management (IAM) policie
 
 - **Description**: This policy provides permissions related to AWS CodeCommit, including Git pull, CodeCommit resource listing, and CloudWatch Events rules for CodeCommit.
 
-- **Policy JSON**: [CodeCommitPermissions.json](/policies/CodeCommitPermissions.json)
+- **Policy JSON**: [CodeCommitPermissions.json](CodeCommitReadOnly.json)
 
 ### 2. IAM User Permissions
 
 - **Description**: This policy allows IAM users to manage their account, including changing passwords, creating login profiles, and managing MFA devices.
 
-- **Policy JSON**: [IAMUserPermissions.json](/policies/IAMUserPermissions.json)
+- **Policy JSON**: [IAMUserPermissions.json](Console_MFA_IP.json)
 
 ### 3. Secrets Manager and KMS Permissions
 
 - **Description**: This policy allows access to AWS Secrets Manager and AWS Key Management Service (KMS) based on resource tags and conditions.
 
-- **Policy JSON**: [SecretsManagerKMSPermissions.json](/policies/SecretsManagerKMSPermissions.json)
+- **Policy JSON**: [SecretsManagerKMSPermissions.json](SecretsManager-KMS-Tag.json)
 
 ## Usage
 
