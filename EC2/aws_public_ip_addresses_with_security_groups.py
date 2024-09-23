@@ -14,7 +14,7 @@ cloudfront_client = boto3.client('cloudfront')
 # 슬랙 웹훅 URL (Slack에서 생성한 Webhook URL을 입력하세요)
 SLACK_WEBHOOK_URL = 'https://hooks.slack.com/services/your/slack/webhook'
 
-# 이전에 저장된 ALB IP 주소
+# 이전에 저장된 IP 주소
 previous_ips = {}
 
 # 엑셀 파일 경로
@@ -46,9 +46,11 @@ def get_network_interface_info():
             
             # 네트워크 정보 추가
             network_info.append({
+                'Name': 'EC2 Network Interface',
+                'Type': 'N/A',
                 'Public IP': association.get('PublicIp', 'N/A'),
                 'Public DNS': association.get('PublicDnsName', 'N/A'),
-                'Security Groups': security_group_ids
+                'Security Group ID': security_group_ids
             })
     return network_info
 
@@ -59,9 +61,11 @@ def get_rds_public_ips():
     for db_instance in response['DBInstances']:
         if db_instance.get('PubliclyAccessible', False):
             rds_info.append({
+                'Name': 'RDS Instance',
+                'Type': 'N/A',
                 'Public IP': db_instance['Endpoint']['Address'],
                 'Public DNS': db_instance['Endpoint']['Address'],
-                'Security Groups': ', '.join([sg['VpcSecurityGroupId'] for sg in db_instance['VpcSecurityGroups']])
+                'Security Group ID': ', '.join([sg['VpcSecurityGroupId'] for sg in db_instance['VpcSecurityGroups']])
             })
     return rds_info
 
@@ -71,9 +75,11 @@ def get_cloudfront_info():
     cloudfront_info = []
     for distribution in response['DistributionList'].get('Items', []):
         cloudfront_info.append({
+            'Name': 'CloudFront Distribution',
+            'Type': 'N/A',
             'Public IP': 'N/A',
             'Public DNS': distribution['DomainName'],
-            'Security Groups': 'N/A'  # CloudFront는 Security Group이 없음
+            'Security Group ID': 'N/A'  # CloudFront는 Security Group이 없음
         })
     return cloudfront_info
 
@@ -93,8 +99,8 @@ def send_slack_message(message):
     if response.status_code != 200:
         raise ValueError(f'Slack message failed with status code {response.status_code}, response: {response.text}')
 
-def monitor_alb():
-    """ 모든 ALB의 IP 주소 변경 모니터링 """
+def monitor_aws_public_ips():
+    """ 모든 AWS 리소스의 IP 주소 변경 모니터링 """
     global previous_ips
     
     while True:
@@ -135,7 +141,7 @@ def monitor_alb():
                 
                 # 이전 IP 주소와 비교하여 변경 여부 확인
                 if alb_name in previous_ips and current_ips != previous_ips[alb_name]:
-                    message = f"ALB '{alb_name}'의 IP 주소가 변경되었습니다! ({alb_type})\n이전 IP: {previous_ips[alb_name]}\n새로운 IP: {current_ips}"
+                    message = f"Resource '{alb_name}'의 IP 주소가 변경되었습니다! ({alb_type})\n이전 IP: {previous_ips[alb_name]}\n새로운 IP: {current_ips}"
                     send_slack_message(message)
                     print(message)
                 
@@ -144,33 +150,15 @@ def monitor_alb():
 
             # EC2 네트워크 인터페이스 정보 추가
             for network_interface in network_interfaces:
-                excel_data.append({
-                    'Name': 'EC2 Network Interface',
-                    'Type': 'N/A',
-                    'Public IP': network_interface['Public IP'],
-                    'Public DNS': network_interface['Public DNS'],
-                    'Security Group ID': network_interface['Security Groups']
-                })
+                excel_data.append(network_interface)
 
             # RDS 인스턴스 정보 추가
             for rds_instance in rds_instances:
-                excel_data.append({
-                    'Name': 'RDS Instance',
-                    'Type': 'N/A',
-                    'Public IP': rds_instance['Public IP'],
-                    'Public DNS': rds_instance['Public DNS'],
-                    'Security Group ID': rds_instance['Security Groups']
-                })
+                excel_data.append(rds_instance)
 
             # CloudFront 배포 정보 추가
             for cloudfront in cloudfront_distributions:
-                excel_data.append({
-                    'Name': 'CloudFront Distribution',
-                    'Type': 'N/A',
-                    'Public IP': cloudfront['Public IP'],
-                    'Public DNS': cloudfront['Public DNS'],
-                    'Security Group ID': cloudfront['Security Groups']
-                })
+                excel_data.append(cloudfront)
 
             # 모든 데이터를 엑셀 파일에 저장
             save_to_excel(excel_data)
@@ -209,37 +197,19 @@ if __name__ == '__main__':
     
     # EC2 네트워크 인터페이스 정보 추가
     for network_interface in network_interfaces:
-        excel_data.append({
-            'Name': 'EC2 Network Interface',
-            'Type': 'N/A',
-            'Public IP': network_interface['Public IP'],
-            'Public DNS': network_interface['Public DNS'],
-            'Security Group ID': network_interface['Security Groups']
-        })
+        excel_data.append(network_interface)
 
     # RDS 인스턴스 정보 추가
     for rds_instance in rds_instances:
-        excel_data.append({
-            'Name': 'RDS Instance',
-            'Type': 'N/A',
-            'Public IP': rds_instance['Public IP'],
-            'Public DNS': rds_instance['Public DNS'],
-            'Security Group ID': rds_instance['Security Groups']
-        })
+        excel_data.append(rds_instance)
 
     # CloudFront 배포 정보 추가
     for cloudfront in cloudfront_distributions:
-        excel_data.append({
-            'Name': 'CloudFront Distribution',
-            'Type': 'N/A',
-            'Public IP': cloudfront['Public IP'],
-            'Public DNS': cloudfront['Public DNS'],
-            'Security Group ID': cloudfront['Security Groups']
-        })
+        excel_data.append(cloudfront)
     
     # 초기 데이터를 엑셀에 저장
     save_to_excel(excel_data)
     print(f"초기 AWS Public IP 정보가 엑셀 파일로 저장되었습니다: {EXCEL_FILE_PATH}")
     
     # 이후 모니터링 시작
-    monitor_alb()
+    monitor_aws_public_ips()
