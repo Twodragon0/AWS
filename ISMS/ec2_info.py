@@ -26,7 +26,7 @@ with open('ec2_info.csv', mode='w', newline='') as file:
             version = instance.get('ImageId', 'N/A')
             availability_zone = instance['Placement']['AvailabilityZone']
             public_ip = instance.get('PublicIpAddress', 'N/A')
-            private_ip = instance['PrivateIpAddress']
+            private_ip = instance.get('PrivateIpAddress', 'N/A')
             status = instance['State']['Name']
 
             # CSV 파일에 한 줄 작성
