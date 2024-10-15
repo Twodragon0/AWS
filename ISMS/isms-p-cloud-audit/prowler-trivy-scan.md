@@ -22,7 +22,8 @@ brew install trivy
 
 ## 2. 통합 보안 스캔 Python 스크립트
 
-스크립트는 [GitHub에서 확인](ISMS/isms-p-cloud-audit/prowler-trivy-scan.py)할 수 있습니다.
+스크립트는 [prower-trivy-scan.py](https://github.com/Twodragon0/AWS/blob/main/ISMS/isms-p-cloud-audit/prowler-trivy-scan.py)
+할 수 있습니다.
 
 ## 3. 코드 설명
 
