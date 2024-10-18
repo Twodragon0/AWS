@@ -65,6 +65,27 @@ resource "aws_nat_gateway" "myproject_prod_nat_gateway" {
   }
 }
 
+# Public Route Table
+resource "aws_route_table" "myproject_prod_public_rt" {
+  vpc_id = aws_vpc.myproject_prod_vpc.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.myproject_prod_igw.id
+  }
+
+  tags = {
+    Name              = "myproject-prod-public-rt"
+    ManagedBy         = "Terraform"
+  }
+}
+
+# Associate Route Table with Public Subnet
+resource "aws_route_table_association" "myproject_prod_public_rt_association" {
+  subnet_id      = aws_subnet.myproject_prod_public_subnet.id
+  route_table_id = aws_route_table.myproject_prod_public_rt.id
+}
+
 # Private Route Table
 resource "aws_route_table" "myproject_prod_private_rt" {
   vpc_id = aws_vpc.myproject_prod_vpc.id
@@ -190,6 +211,14 @@ resource "aws_instance" "myproject_prod_private_instance" {
   associate_public_ip_address = false
   security_groups        = [aws_security_group.myproject_prod_ec2_sg.id]
   iam_instance_profile   = aws_iam_instance_profile.myproject_prod_ssm_profile.name
+
+  # SSM Agent install script
+  user_data = <<-EOF
+    #!/bin/bash
+    yum install -y amazon-ssm-agent
+    systemctl enable amazon-ssm-agent
+    systemctl start amazon-ssm-agent
+  EOF
 
   tags = {
     Name              = "myproject-prod-private-instance"
