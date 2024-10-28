@@ -1,0 +1,89 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "modifyec2instance",
+            "Effect": "Allow",
+            "Action": [
+                "ec2:DescribeIamInstanceProfileAssociations",
+                "ec2:DisassociateIamInstanceProfile",
+                "ec2:AssociateIamInstanceProfile",
+                "ec2:ReplaceIamInstanceProfileAssociation"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "ConfigUserGet",
+            "Effect": "Allow",
+            "Action": [
+                "config:Get*",
+                "config:Describe*",
+                "config:Deliver*",
+                "config:List*",
+                "config:Select*",
+                "tag:GetResources",
+                "tag:GetTagKeys",
+                "cloudtrail:DescribeTrails",
+                "cloudtrail:GetTrailStatus",
+                "cloudtrail:LookupEvents"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "AthenaActions",
+            "Effect": "Allow",
+            "Action": [
+                "athena:StartQueryExecution",
+                "athena:Get*",
+                "athena:List*",
+                "athena:Create*",
+                "athena:Update*",
+                "athena:DeleteNamedQuery",
+                "athena:StopQueryExecution",
+                "athena:DeleteWorkGroup",
+                "athena:DeletePreparedStatement"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "GlueActions",
+            "Effect": "Allow",
+            "Action": [
+                "glue:Get*",
+                "glue:Create*",
+                "glue:Update*"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "TrustedAdvisorActions",
+            "Effect": "Allow",
+            "Action": [
+                "trustedadvisor:Describe*",
+                "trustedadvisor:List*",
+                "trustedadvisor:DownloadRisk",
+                "trustedadvisor:RefreshCheck",
+                "trustedadvisor:ExcludeCheckItems",
+                "trustedadvisor:IncludeCheckItems"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "AccessAnalyzerAll",
+            "Effect": "Allow",
+            "Action": "access-analyzer:*",
+            "Resource": "arn:aws:access-analyzer:*:<account-id>:*"
+        },
+        {
+            "Sid": "EKSRead",
+            "Effect": "Allow",
+            "Action": [
+                "eks:DescribeCluster",
+                "eks:ListClusters",
+                "eks:ListUpdates",
+                "eks:DescribeUpdate"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
