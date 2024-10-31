@@ -7,21 +7,21 @@ resource "aws_vpc" "myproject_prod_vpc" {
   cidr_block = "10.0.0.0/16"
 
   tags = {
-    Name              = "myproject-prod-vpc"
-    ManagedBy         = "Terraform"
+    Name                = "myproject-prod-vpc"
+    ManagedBy           = "Terraform"
     ModificationLocked = "true"
   }
 }
 
-# Public Subnet for NAT Gateway
+# Public Subnet
 resource "aws_subnet" "myproject_prod_public_subnet" {
   vpc_id            = aws_vpc.myproject_prod_vpc.id
   cidr_block        = "10.0.2.0/24"
   availability_zone = "ap-northeast-2a"
 
   tags = {
-    Name              = "myproject-prod-public-subnet"
-    ManagedBy         = "Terraform"
+    Name                = "myproject-prod-public-subnet"
+    ManagedBy           = "Terraform"
     ModificationLocked = "true"
   }
 }
@@ -33,8 +33,8 @@ resource "aws_subnet" "myproject_prod_private_subnet" {
   availability_zone = "ap-northeast-2a"
 
   tags = {
-    Name              = "myproject-prod-private-subnet"
-    ManagedBy         = "Terraform"
+    Name                = "myproject-prod-private-subnet"
+    ManagedBy           = "Terraform"
     ModificationLocked = "true"
   }
 }
@@ -44,8 +44,8 @@ resource "aws_internet_gateway" "myproject_prod_igw" {
   vpc_id = aws_vpc.myproject_prod_vpc.id
 
   tags = {
-    Name              = "myproject-prod-igw"
-    ManagedBy         = "Terraform"
+    Name      = "myproject-prod-igw"
+    ManagedBy = "Terraform"
   }
 }
 
@@ -60,8 +60,8 @@ resource "aws_nat_gateway" "myproject_prod_nat_gateway" {
   subnet_id     = aws_subnet.myproject_prod_public_subnet.id
 
   tags = {
-    Name              = "myproject-prod-nat-gateway"
-    ManagedBy         = "Terraform"
+    Name      = "myproject-prod-nat-gateway"
+    ManagedBy = "Terraform"
   }
 }
 
@@ -75,8 +75,8 @@ resource "aws_route_table" "myproject_prod_public_rt" {
   }
 
   tags = {
-    Name              = "myproject-prod-public-rt"
-    ManagedBy         = "Terraform"
+    Name      = "myproject-prod-public-rt"
+    ManagedBy = "Terraform"
   }
 }
 
@@ -84,27 +84,6 @@ resource "aws_route_table" "myproject_prod_public_rt" {
 resource "aws_route_table_association" "myproject_prod_public_rt_association" {
   subnet_id      = aws_subnet.myproject_prod_public_subnet.id
   route_table_id = aws_route_table.myproject_prod_public_rt.id
-}
-
-# Private Route Table
-resource "aws_route_table" "myproject_prod_private_rt" {
-  vpc_id = aws_vpc.myproject_prod_vpc.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_nat_gateway.myproject_prod_nat_gateway.id
-  }
-
-  tags = {
-    Name              = "myproject-prod-private-rt"
-    ManagedBy         = "Terraform"
-  }
-}
-
-# Associate Route Table with Private Subnet
-resource "aws_route_table_association" "myproject_prod_private_rt_association" {
-  subnet_id      = aws_subnet.myproject_prod_private_subnet.id
-  route_table_id = aws_route_table.myproject_prod_private_rt.id
 }
 
 # IAM Role for SSM Access
@@ -115,7 +94,7 @@ resource "aws_iam_role" "myproject_prod_ssm_role" {
     Version = "2012-10-17",
     Statement = [
       {
-        Effect = "Allow",
+        Effect    = "Allow",
         Principal = {
           Service = "ec2.amazonaws.com"
         },
@@ -125,7 +104,7 @@ resource "aws_iam_role" "myproject_prod_ssm_role" {
   })
 
   tags = {
-    ManagedBy         = "Terraform"
+    ManagedBy           = "Terraform"
     ModificationLocked = "true"
   }
 }
@@ -142,7 +121,7 @@ resource "aws_iam_instance_profile" "myproject_prod_ssm_profile" {
   role = aws_iam_role.myproject_prod_ssm_role.name
 
   tags = {
-    ManagedBy         = "Terraform"
+    ManagedBy           = "Terraform"
     ModificationLocked = "true"
   }
 }
@@ -158,7 +137,7 @@ resource "aws_security_group" "myproject_prod_vpc_endpoint_sg" {
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
-    cidr_blocks = ["10.0.0.0/16"]  # Only allow traffic within the VPC
+    cidr_blocks = ["10.0.0.0/16"]  # VPC 내 트래픽만 허용
   }
 
   egress {
@@ -169,13 +148,13 @@ resource "aws_security_group" "myproject_prod_vpc_endpoint_sg" {
   }
 
   tags = {
-    Name              = "myproject-prod-vpc-endpoint-sg"
-    ManagedBy         = "Terraform"
+    Name                = "myproject-prod-vpc-endpoint-sg"
+    ManagedBy           = "Terraform"
     ModificationLocked = "true"
   }
 }
 
-# Security Group for EC2 Instance (Allow access only from SSM)
+# Security Group for EC2 Instance (Allow access only from VPC Endpoints)
 resource "aws_security_group" "myproject_prod_ec2_sg" {
   name        = "myproject-prod-ec2-sg"
   description = "Security group for EC2 to allow SSM access"
@@ -183,10 +162,10 @@ resource "aws_security_group" "myproject_prod_ec2_sg" {
 
   # Ingress rule: Allow HTTPS traffic from the VPC Endpoint's security group
   ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    security_groups = [aws_security_group.myproject_prod_vpc_endpoint_sg.id]  # Only allow traffic from VPC endpoint
+    from_port       = 443
+    to_port         = 443
+    protocol        = "tcp"
+    security_groups = [aws_security_group.myproject_prod_vpc_endpoint_sg.id]  # VPC 엔드포인트로부터의 트래픽만 허용
   }
 
   egress {
@@ -197,22 +176,22 @@ resource "aws_security_group" "myproject_prod_ec2_sg" {
   }
 
   tags = {
-    Name              = "myproject-prod-ec2-sg"
-    ManagedBy         = "Terraform"
+    Name                = "myproject-prod-ec2-sg"
+    ManagedBy           = "Terraform"
     ModificationLocked = "true"
   }
 }
 
 # EC2 Instance in Private Subnet
 resource "aws_instance" "myproject_prod_private_instance" {
-  ami                    = "ami-01123b84e2a4fba05"  # Amazon Linux 2 in ap-northeast-2
-  instance_type          = "t2.micro"
-  subnet_id              = aws_subnet.myproject_prod_private_subnet.id
+  ami                         = "ami-01123b84e2a4fba05"  # ap-northeast-2의 Amazon Linux 2 AMI
+  instance_type               = "t2.micro"
+  subnet_id                   = aws_subnet.myproject_prod_private_subnet.id
   associate_public_ip_address = false
-  security_groups        = [aws_security_group.myproject_prod_ec2_sg.id]
-  iam_instance_profile   = aws_iam_instance_profile.myproject_prod_ssm_profile.name
+  security_groups             = [aws_security_group.myproject_prod_ec2_sg.id]
+  iam_instance_profile        = aws_iam_instance_profile.myproject_prod_ssm_profile.name
 
-  # SSM Agent install script
+  # SSM Agent 설치 스크립트
   user_data = <<-EOF
     #!/bin/bash
     yum install -y amazon-ssm-agent
@@ -221,50 +200,44 @@ resource "aws_instance" "myproject_prod_private_instance" {
   EOF
 
   tags = {
-    Name              = "myproject-prod-private-instance"
-    ManagedBy         = "Terraform"
+    Name                = "myproject-prod-private-instance"
+    ManagedBy           = "Terraform"
     ModificationLocked = "true"
+    Usage               = "prod-name"        # Python 스크립트에서 필터링할 'Usage' 태그 추가
+    HostName            = "prod-hostname"    # 필요 시 추가
   }
 }
 
-# VPC Endpoint for SSM
-resource "aws_vpc_endpoint" "myproject_prod_ssm_endpoint" {
-  vpc_id            = aws_vpc.myproject_prod_vpc.id
-  service_name      = "com.amazonaws.ap-northeast-2.ssm"
-  vpc_endpoint_type = "Interface"
-  subnet_ids        = [aws_subnet.myproject_prod_private_subnet.id]
-  security_group_ids = [aws_security_group.myproject_prod_vpc_endpoint_sg.id]
+# SNS Topic for Lambda Notifications
+resource "aws_sns_topic" "aws_monitor_topic" {
+  name = "aws-monitor-topic"
 
   tags = {
-    ManagedBy         = "Terraform"
-    ModificationLocked = "true"
+    Name      = "AWS Monitor SNS Topic"
+    ManagedBy = "Terraform"
   }
 }
 
-# VPC Endpoint for SSM Messages
-resource "aws_vpc_endpoint" "myproject_prod_ssmmessages_endpoint" {
-  vpc_id            = aws_vpc.myproject_prod_vpc.id
-  service_name      = "com.amazonaws.ap-northeast-2.ssmmessages"
-  vpc_endpoint_type = "Interface"
-  subnet_ids        = [aws_subnet.myproject_prod_private_subnet.id]
-  security_group_ids = [aws_security_group.myproject_prod_vpc_endpoint_sg.id]
-
-  tags = {
-    ManagedBy         = "Terraform"
-    ModificationLocked = "true"
-  }
+# SNS Topic Subscription (이메일 예시)
+resource "aws_sns_topic_subscription" "email_subscription" {
+  topic_arn = aws_sns_topic.aws_monitor_topic.arn
+  protocol  = "email"
+  endpoint  = "your-email@example.com"  # 실제 이메일 주소로 변경
 }
 
-# VPC Endpoint for EC2 Messages
-resource "aws_vpc_endpoint" "myproject_prod_ec2messages_endpoint" {
-  vpc_id            = aws_vpc.myproject_prod_vpc.id
-  service_name      = "com.amazonaws.ap-northeast-2.ec2messages"
-  vpc_endpoint_type = "Interface"
-  subnet_ids        = [aws_subnet.myproject_prod_private_subnet.id]
+# VPC Endpoints 모듈 호출
+module "vpc_endpoints" {
+  source             = "./modules/vpc_endpoints"
+  vpc_id             = aws_vpc.myproject_prod_vpc.id
+  private_subnet_id  = aws_subnet.myproject_prod_private_subnet.id
   security_group_ids = [aws_security_group.myproject_prod_vpc_endpoint_sg.id]
+}
 
-  tags = {
-    ManagedBy         = "Terraform"
-    ModificationLocked = "true"
-  }
+# Lambda 모듈 호출
+module "lambda" {
+  source             = "./modules/lambda"
+  ec2_sg_id          = aws_security_group.myproject_prod_ec2_sg.id
+  vpc_endpoint_sg_id = aws_security_group.myproject_prod_vpc_endpoint_sg.id
+  sns_topic_arn      = aws_sns_topic.aws_monitor_topic.arn
+  s3_bucket          = "your-s3-bucket"  # 엑셀 파일 저장 S3 버킷 이름
 }
