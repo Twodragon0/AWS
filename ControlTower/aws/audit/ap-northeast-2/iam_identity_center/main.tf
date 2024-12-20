@@ -1,5 +1,6 @@
 module "aws-iam-identity-center" {
   source  = "aws-ia/iam-identity-center/aws" // remote example
+  version = "1.0.0"
 
   # Define existing SSO groups for c security
   existing_sso_groups = {
