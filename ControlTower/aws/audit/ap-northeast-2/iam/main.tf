@@ -27,7 +27,7 @@ module "aws-iam-identity-center" {
         "arn:aws:iam::aws:policy/SecurityAudit",
       ],
       customer_managed_policies = [
-        "policy_pset_security",
+        "policy_pset_c_security",
         "policy_pset_console_security"
       ],
       tags = { ManagedBy = "Terraform" }
@@ -49,7 +49,7 @@ module "aws-iam-identity-center" {
         "arn:aws:iam::aws:policy/SecurityAudit",
       ],
       customer_managed_policies = [
-        "policy_pset_security",
+        "policy_pset_c_security",
         "policy_pset_console_security"
       ],
       tags = { ManagedBy = "Terraform" }
