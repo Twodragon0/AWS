@@ -206,6 +206,9 @@ resource "aws_instance" "myproject_prod_private_instance" {
     Usage               = "prod-name"        # Python 스크립트에서 필터링할 'Usage' 태그 추가
     HostName            = "prod-hostname"    # 필요 시 추가
   }
+  metadata_options {
+    http_tokens = "required"
+  }
 }
 
 # SNS Topic for Lambda Notifications
