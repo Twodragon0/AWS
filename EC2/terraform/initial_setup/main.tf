@@ -22,4 +22,7 @@ resource "aws_dynamodb_table" "terraform_state_lock" {
     Name      = "Terraform State Lock"
     ManagedBy = "Terraform"
   }
+  point_in_time_recovery {
+    enabled = true
+  }
 }
