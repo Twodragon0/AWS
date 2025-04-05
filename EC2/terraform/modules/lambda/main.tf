@@ -36,6 +36,14 @@ resource "aws_iam_role_policy_attachment" "lambda_cloudwatch_policy_attachment" 
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchFullAccess"
 }
 
+# Lambda 계층 생성
+resource "aws_lambda_layer_version" "lambda_layer" {
+  filename            = "${path.module}/lambda_layer.zip"
+  layer_name          = "aws_monitor_dependencies"
+  compatible_runtimes = ["python3.8"]
+  description         = "Dependencies for AWS Monitor Lambda"
+}
+
 # Lambda 함수
 resource "aws_lambda_function" "aws_monitor_lambda" {
   filename         = "${path.module}/aws_monitor.zip"
@@ -44,6 +52,7 @@ resource "aws_lambda_function" "aws_monitor_lambda" {
   handler          = "aws_monitor.lambda_handler"
   source_code_hash = filebase64sha256("${path.module}/aws_monitor.zip")
   runtime          = "python3.8"
+  layers           = [aws_lambda_layer_version.lambda_layer.arn]
 
   environment {
     variables = {
