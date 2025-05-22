@@ -498,6 +498,12 @@ def _ssl_wrap_socket_impl(sock, ssl_context, tls_in_tls, server_hostname=None):
         SSLTransport._validate_ssl_context_for_tls_in_tls(ssl_context)
         return SSLTransport(sock, ssl_context, server_hostname)
 
+    # Ensure the SSLContext enforces a secure protocol version
+    if hasattr(ssl_context, "minimum_version"):
+        ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
+    else:
+        ssl_context.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1
+
     if server_hostname:
         return ssl_context.wrap_socket(sock, server_hostname=server_hostname)
     else:
