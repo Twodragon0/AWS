@@ -1,0 +1,405 @@
+{
+  "version": "36.0.25",
+  "artifacts": {
+    "AmazonBedrockKnowledgebaseSlackbotStack.assets": {
+      "type": "cdk:asset-manifest",
+      "properties": {
+        "file": "AmazonBedrockKnowledgebaseSlackbotStack.assets.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+      }
+    },
+    "AmazonBedrockKnowledgebaseSlackbotStack": {
+      "type": "aws:cloudformation:stack",
+      "environment": "aws://unknown-account/unknown-region",
+      "properties": {
+        "templateFile": "AmazonBedrockKnowledgebaseSlackbotStack.template.json",
+        "terminationProtection": false,
+        "validateOnSynth": false,
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-deploy-role-${AWS::AccountId}-${AWS::Region}",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-cfn-exec-role-${AWS::AccountId}-${AWS::Region}",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}/92bd20479e5638531a40616c31e9bad35f19635bd405f88e0baa6f8b7f7abd82.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
+        "additionalDependencies": [
+          "AmazonBedrockKnowledgebaseSlackbotStack.assets"
+        ],
+        "lookupRole": {
+          "arn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-lookup-role-${AWS::AccountId}-${AWS::Region}",
+          "requiresBootstrapStackVersion": 8,
+          "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+        }
+      },
+      "dependencies": [
+        "AmazonBedrockKnowledgebaseSlackbotStack.assets"
+      ],
+      "metadata": {
+        "/AmazonBedrockKnowledgebaseSlackbotStack/SlackBotTokenSecret/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SlackBotTokenSecret134E8F53"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/SlackBotSigningSecret/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SlackBotSigningSecretD992DBC9"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/SlackBotTokenParameter/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SlackBotTokenParameter00E0F488"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/SlackSigningSecretParameter/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SlackSigningSecretParameterC0B416B4"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/kb-bucket/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "kbbucket0DF3DEC2"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/kb-bucket/Policy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "kbbucketPolicy4A0AA7C7"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/kb-bucket/AutoDeleteObjectsCustomResource/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "kbbucketAutoDeleteObjectsCustomResourceB76B18A1"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/LatestNodeRuntimeMap": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LatestNodeRuntimeMap"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/Custom::S3AutoDeleteObjectsCustomResourceProvider": [
+          {
+            "type": "aws:cdk:is-custom-resource-handler-customResourceProvider",
+            "data": true
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/Custom::S3AutoDeleteObjectsCustomResourceProvider/Role": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/Custom::S3AutoDeleteObjectsCustomResourceProvider/Handler": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/BedrockExecutionRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BedrockExecutionRole9C52C73A"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/BedrockExecutionRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BedrockExecutionRoleDefaultPolicy1A669643"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/MyGuardrail": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MyGuardrail"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/MyGuardrailVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MyGuardrailVersion"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/osCollection": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "osCollection"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/aossEncryptionPolicy": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "aossEncryptionPolicy"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/aossNetworkPolicy": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "aossNetworkPolicy"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/CreateIndexFunctionRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CreateIndexFunctionRole5B464E2F"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/CreateIndexFunctionRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CreateIndexFunctionRoleDefaultPolicy605916C4"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/CreateIndexFunction/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CreateIndexFunctionFFD9A5AA"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/aossAccessPolicy": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "aossAccessPolicy"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/vectorIndex/Resource/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "vectorIndex1FDF8C6F"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/vectorIndex/CustomResourcePolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "vectorIndexCustomResourcePolicy2340B416"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/AWS679f53fac002430cb0da5b7982bd2287": [
+          {
+            "type": "aws:cdk:is-custom-resource-handler-singleton",
+            "data": true
+          },
+          {
+            "type": "aws:cdk:is-custom-resource-handler-runtime-family",
+            "data": 0
+          },
+          {
+            "type": "aws:cdk:is-custom-resource-handler-singleton",
+            "data": true
+          },
+          {
+            "type": "aws:cdk:is-custom-resource-handler-runtime-family",
+            "data": 0
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/AWS679f53fac002430cb0da5b7982bd2287/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AWS679f53fac002430cb0da5b7982bd2287ServiceRoleC1EA0FF2"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/AWS679f53fac002430cb0da5b7982bd2287/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AWS679f53fac002430cb0da5b7982bd22872D164C4C"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/waitForIndexCreation/Resource/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "waitForIndexCreation1C9FE6A9"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/waitForIndexCreation/CustomResourcePolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "waitForIndexCreationCustomResourcePolicy837E8CF0"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/bedrockkb": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "bedrockkb"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/bedrockKbDataSource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "bedrockKbDataSource"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/EncryptionKey/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "EncryptionKey1B843E66"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/SlackEventTrackingTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "SlackEventTrackingTableE6657F6F"
+            }
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/SlackEventTrackingTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SlackEventTrackingTableE6657F6F"
+          },
+          {
+            "type": "aws:cdk:warning",
+            "data": "AwsSolutions-DDB3: The DynamoDB table does not have Point-in-time Recovery enabled.\n",
+            "trace": [
+              "Annotations.addMessage (/Users/yong/Desktop/kubekube/levvels/utils/amazon-bedrock-knowledgebase-slackbot/node_modules/aws-cdk-lib/core/lib/annotations.js:1:1608)",
+              "Annotations.addWarning (/Users/yong/Desktop/kubekube/levvels/utils/amazon-bedrock-knowledgebase-slackbot/node_modules/aws-cdk-lib/core/lib/annotations.js:1:931)",
+              "AnnotationLogger.onNonCompliance (/Users/yong/Desktop/kubekube/levvels/utils/amazon-bedrock-knowledgebase-slackbot/node_modules/cdk-nag/src/nag-logger.ts:144:37)",
+              "/Users/yong/Desktop/kubekube/levvels/utils/amazon-bedrock-knowledgebase-slackbot/node_modules/cdk-nag/src/nag-pack.ts:185:17",
+              "Array.forEach (<anonymous>)",
+              "AwsSolutionsChecks.applyRule (/Users/yong/Desktop/kubekube/levvels/utils/amazon-bedrock-knowledgebase-slackbot/node_modules/cdk-nag/src/nag-pack.ts:184:26)",
+              "AwsSolutionsChecks.checkDatabases (/Users/yong/Desktop/kubekube/levvels/utils/amazon-bedrock-knowledgebase-slackbot/node_modules/cdk-nag/src/packs/aws-solutions.ts:536:10)",
+              "AwsSolutionsChecks.visit (/Users/yong/Desktop/kubekube/levvels/utils/amazon-bedrock-knowledgebase-slackbot/node_modules/cdk-nag/src/packs/aws-solutions.ts:202:12)",
+              "recurse (/Users/yong/Desktop/kubekube/levvels/utils/amazon-bedrock-knowledgebase-slackbot/node_modules/aws-cdk-lib/core/lib/private/synthesis.js:2:2282)",
+              "recurse (/Users/yong/Desktop/kubekube/levvels/utils/amazon-bedrock-knowledgebase-slackbot/node_modules/aws-cdk-lib/core/lib/private/synthesis.js:2:2646)",
+              "recurse (/Users/yong/Desktop/kubekube/levvels/utils/amazon-bedrock-knowledgebase-slackbot/node_modules/aws-cdk-lib/core/lib/private/synthesis.js:2:2646)",
+              "recurse (/Users/yong/Desktop/kubekube/levvels/utils/amazon-bedrock-knowledgebase-slackbot/node_modules/aws-cdk-lib/core/lib/private/synthesis.js:2:2646)",
+              "invokeAspects (/Users/yong/Desktop/kubekube/levvels/utils/amazon-bedrock-knowledgebase-slackbot/node_modules/aws-cdk-lib/core/lib/private/synthesis.js:2:1906)",
+              "synthesize (/Users/yong/Desktop/kubekube/levvels/utils/amazon-bedrock-knowledgebase-slackbot/node_modules/aws-cdk-lib/core/lib/private/synthesis.js:1:1450)",
+              "App.synth (/Users/yong/Desktop/kubekube/levvels/utils/amazon-bedrock-knowledgebase-slackbot/node_modules/aws-cdk-lib/core/lib/stage.js:1:2263)",
+              "process.<anonymous> (/Users/yong/Desktop/kubekube/levvels/utils/amazon-bedrock-knowledgebase-slackbot/node_modules/aws-cdk-lib/core/lib/app.js:1:1745)",
+              "Object.onceWrapper (node:events:622:26)",
+              "process.emit (node:events:507:28)",
+              "process.emit (node:domain:489:12)",
+              "process.emit.sharedData.processEmitHook.installedValue [as emit] (/Users/yong/Desktop/kubekube/levvels/utils/amazon-bedrock-knowledgebase-slackbot/node_modules/@cspotcode/source-map-support/source-map-support.js:745:40)"
+            ]
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/BedrockKbSlackbotFunction/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BedrockKbSlackbotFunctionServiceRoleFB2FDCC5"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/BedrockKbSlackbotFunction/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BedrockKbSlackbotFunctionServiceRoleDefaultPolicy1EDF00A1"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/BedrockKbSlackbotFunction/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BedrockKbSlackbotFunctionF152C577"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/ApiGatewayLogsRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiGatewayLogsRoleA66F4CEE"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/ApiGatewayAccount": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiGatewayAccount"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/ApiGatewayAccessLogs/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiGatewayAccessLogsFB871B4C"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/BedrockKbSlackbotApi/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BedrockKbSlackbotApi4FE69B5E"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/BedrockKbSlackbotApi/Deployment/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BedrockKbSlackbotApiDeploymentCE6734917d21b24e2bd8f19b4604e25fa214da46"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/BedrockKbSlackbotApi/DeploymentStage.prod/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BedrockKbSlackbotApiDeploymentStageprod37612A79"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/BedrockKbSlackbotApi/Endpoint": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BedrockKbSlackbotApiEndpointE5108098"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/BedrockKbSlackbotApi/Default/slack/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BedrockKbSlackbotApislackBB6C792B"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/BedrockKbSlackbotApi/Default/slack/ask-aws/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BedrockKbSlackbotApislackaskaws73DA2F54"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/BedrockKbSlackbotApi/Default/slack/ask-aws/POST/ApiPermission.AmazonBedrockKnowledgebaseSlackbotStackBedrockKbSlackbotApi8F146898.POST..slack.ask-aws": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BedrockKbSlackbotApislackaskawsPOSTApiPermissionAmazonBedrockKnowledgebaseSlackbotStackBedrockKbSlackbotApi8F146898POSTslackaskaws5B9BF41E"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/BedrockKbSlackbotApi/Default/slack/ask-aws/POST/ApiPermission.Test.AmazonBedrockKnowledgebaseSlackbotStackBedrockKbSlackbotApi8F146898.POST..slack.ask-aws": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BedrockKbSlackbotApislackaskawsPOSTApiPermissionTestAmazonBedrockKnowledgebaseSlackbotStackBedrockKbSlackbotApi8F146898POSTslackaskawsCF5C6122"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/BedrockKbSlackbotApi/Default/slack/ask-aws/POST/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BedrockKbSlackbotApislackaskawsPOST47203335"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/CDKMetadata/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadata"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/CDKMetadata/Condition": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadataAvailable"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/BootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BootstrapVersion"
+          }
+        ],
+        "/AmazonBedrockKnowledgebaseSlackbotStack/CheckBootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckBootstrapVersion"
+          }
+        ]
+      },
+      "displayName": "AmazonBedrockKnowledgebaseSlackbotStack"
+    },
+    "Tree": {
+      "type": "cdk:tree",
+      "properties": {
+        "file": "tree.json"
+      }
+    }
+  }
+}
