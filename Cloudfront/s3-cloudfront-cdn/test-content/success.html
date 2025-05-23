@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎉 CloudFront 연결 성공!</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+        }
+        .success-box {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 50px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        .emoji {
+            font-size: 100px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            font-size: 3em;
+            margin: 20px 0;
+        }
+        p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="success-box">
+        <div class="emoji">🎉</div>
+        <h1>성공!</h1>
+        <p>CloudFront와 S3가 정상적으로 연결되었습니다!</p>
+        <p>🌐 도메인: s3.2twodragon.com</p>
+        <p>📅 <span id="date"></span></p>
+    </div>
+    <script>
+        document.getElementById('date').textContent = new Date().toLocaleString('ko-KR');
+    </script>
+</body>
+</html> 

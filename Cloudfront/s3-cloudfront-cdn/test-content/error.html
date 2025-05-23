@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 - 페이지를 찾을 수 없습니다</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(45deg, #FF6B6B, #FF8E53);
+            color: white;
+        }
+        .error-box {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 50px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        .emoji {
+            font-size: 100px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            font-size: 3em;
+            margin: 20px 0;
+        }
+        p {
+            font-size: 1.2em;
+            opacity: 0.9;
+            margin: 10px 0;
+        }
+        .button {
+            display: inline-block;
+            background: white;
+            color: #FF6B6B;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 25px;
+            margin-top: 20px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        .button:hover {
+            background: #f0f0f0;
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="error-box">
+        <div class="emoji">😵</div>
+        <h1>404</h1>
+        <p>요청하신 페이지를 찾을 수 없습니다.</p>
+        <p>하지만 CloudFront는 정상 작동 중입니다!</p>
+        <a href="/" class="button">🏠 홈으로 돌아가기</a>
+    </div>
+</body>
+</html> 

@@ -129,6 +129,10 @@ resource "aws_eip" "nat_eip" {
   )
 }
 
+resource "aws_eip" "myproject_prod_eip" {
+  domain = "vpc"  // vpc = true 대신 사용
+}
+
 # NAT 게이트웨이 생성
 resource "aws_nat_gateway" "nat_gw" {
   allocation_id = aws_eip.nat_eip.id

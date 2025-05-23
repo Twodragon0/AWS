@@ -49,11 +49,6 @@ resource "aws_internet_gateway" "myproject_prod_igw" {
   }
 }
 
-# Elastic IP for NAT Gateway
-resource "aws_eip" "myproject_prod_eip" {
-  vpc = true
-}
-
 # NAT Gateway
 resource "aws_nat_gateway" "myproject_prod_nat_gateway" {
   allocation_id = aws_eip.myproject_prod_eip.id
