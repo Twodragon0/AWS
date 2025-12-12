@@ -1,0 +1,138 @@
+name: Infracost
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    paths:
+      - 'EC2/terraform/**'
+      - 'EKS/**'
+      - 'Cloudfront/s3-cloudfront-cdn/**'
+      - 'ControlTower/**'
+      - '.github/workflows/infracost.yml'
+
+env:
+  INFRACOST_API_KEY: ${{ secrets.INFRACOST_API_KEY }}
+  INFRACOST_SKIP_UPDATE_CHECK: true
+
+jobs:
+  infracost:
+    name: Infracost
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Infracost
+        uses: infracost/actions/setup@v3
+        with:
+          api-key: ${{ env.INFRACOST_API_KEY }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.0
+
+      - name: Generate Infracost JSON
+        id: infracost-json
+        continue-on-error: true
+        run: |
+          mkdir -p infracost-outputs
+          
+          # EC2 Terraform
+          if [ -d "EC2/terraform" ] && [ -n "$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- EC2/terraform/ 2>/dev/null || echo 'EC2/terraform')" ]; then
+            echo "Running Infracost for EC2/terraform..."
+            cd EC2/terraform
+            if terraform init -input=false -backend=false 2>&1 | grep -q "Error"; then
+              echo "Terraform init failed, trying direct analysis..."
+              infracost breakdown --path . --format json --out-file ../../infracost-outputs/ec2-infracost.json || true
+            else
+              if terraform plan -out=tfplan.binary -input=false -refresh=false 2>&1 | grep -q "Error"; then
+                echo "Terraform plan failed, trying direct analysis..."
+                infracost breakdown --path . --format json --out-file ../../infracost-outputs/ec2-infracost.json || true
+              else
+                terraform show -json tfplan.binary > tfplan.json 2>/dev/null || true
+                if [ -f tfplan.json ]; then
+                  infracost breakdown --path tfplan.json --format json --out-file ../../infracost-outputs/ec2-infracost.json || true
+                else
+                  infracost breakdown --path . --format json --out-file ../../infracost-outputs/ec2-infracost.json || true
+                fi
+              fi
+            fi
+            cd ../..
+          fi
+
+          # EKS Terraform
+          if [ -d "EKS" ] && [ -n "$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- EKS/ 2>/dev/null || echo 'EKS')" ]; then
+            echo "Running Infracost for EKS..."
+            cd EKS
+            if terraform init -input=false -backend=false 2>&1 | grep -q "Error"; then
+              echo "Terraform init failed, trying direct analysis..."
+              infracost breakdown --path . --format json --out-file ../infracost-outputs/eks-infracost.json || true
+            else
+              if terraform plan -out=tfplan.binary -input=false -refresh=false 2>&1 | grep -q "Error"; then
+                echo "Terraform plan failed, trying direct analysis..."
+                infracost breakdown --path . --format json --out-file ../infracost-outputs/eks-infracost.json || true
+              else
+                terraform show -json tfplan.binary > tfplan.json 2>/dev/null || true
+                if [ -f tfplan.json ]; then
+                  infracost breakdown --path tfplan.json --format json --out-file ../infracost-outputs/eks-infracost.json || true
+                else
+                  infracost breakdown --path . --format json --out-file ../infracost-outputs/eks-infracost.json || true
+                fi
+              fi
+            fi
+            cd ..
+          fi
+
+          # CloudFront Terraform
+          if [ -d "Cloudfront/s3-cloudfront-cdn" ] && [ -n "$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- Cloudfront/s3-cloudfront-cdn/ 2>/dev/null || echo 'Cloudfront/s3-cloudfront-cdn')" ]; then
+            echo "Running Infracost for Cloudfront/s3-cloudfront-cdn..."
+            cd Cloudfront/s3-cloudfront-cdn
+            if terraform init -input=false -backend=false 2>&1 | grep -q "Error"; then
+              echo "Terraform init failed, trying direct analysis..."
+              infracost breakdown --path . --format json --out-file ../../infracost-outputs/cloudfront-infracost.json || true
+            else
+              if terraform plan -out=tfplan.binary -input=false -refresh=false 2>&1 | grep -q "Error"; then
+                echo "Terraform plan failed, trying direct analysis..."
+                infracost breakdown --path . --format json --out-file ../../infracost-outputs/cloudfront-infracost.json || true
+              else
+                terraform show -json tfplan.binary > tfplan.json 2>/dev/null || true
+                if [ -f tfplan.json ]; then
+                  infracost breakdown --path tfplan.json --format json --out-file ../../infracost-outputs/cloudfront-infracost.json || true
+                else
+                  infracost breakdown --path . --format json --out-file ../../infracost-outputs/cloudfront-infracost.json || true
+                fi
+              fi
+            fi
+            cd ../..
+          fi
+
+          # ControlTower Terraform
+          if [ -d "ControlTower/aws/audit" ] && [ -n "$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- ControlTower/aws/audit/ 2>/dev/null || echo 'ControlTower/aws/audit')" ]; then
+            echo "Running Infracost for ControlTower..."
+            find ControlTower/aws/audit -name "main.tf" -type f | while read -r tf_file; do
+              tf_dir=$(dirname "$tf_file")
+              echo "Processing $tf_dir..."
+              cd "$tf_dir"
+              infracost breakdown --path . --format json --out-file "$GITHUB_WORKSPACE/infracost-outputs/controltower-infracost.json" || true
+              cd "$GITHUB_WORKSPACE"
+            done
+          fi
+
+      - name: Post Infracost comment
+        uses: infracost/actions/comment@v3
+        if: github.event_name == 'pull_request'
+        with:
+          path: infracost-outputs/*.json
+          behavior: update
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          show-project-name: true
+          show-skipped: true
+

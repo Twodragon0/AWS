@@ -1,0 +1,41 @@
+version: 0.1
+
+# Infracost configuration file
+# This file allows you to customize Infracost behavior
+
+# Currency settings
+currency: USD
+
+# Terraform settings
+terraform_workspace: default
+
+# Cloud provider settings
+aws:
+  # Default region (can be overridden per project)
+  default_region: ap-northeast-2
+
+# Cost estimation settings
+pricing_api_endpoint: https://pricing.api.infracost.io
+
+# Projects configuration
+projects:
+  - path: EC2/terraform
+    name: EC2 Infrastructure
+    terraform_workspace: default
+    terraform_plan_flags: "-var-file=terraform.tfvars.example"
+    
+  - path: EKS
+    name: EKS Infrastructure
+    terraform_workspace: default
+    
+  - path: Cloudfront/s3-cloudfront-cdn
+    name: CloudFront CDN
+    terraform_workspace: default
+    terraform_plan_flags: "-var-file=terraform.tfvars.example"
+
+# Tags for cost allocation
+tags:
+  Environment: production
+  ManagedBy: Terraform
+  Project: AWS-Infrastructure
+

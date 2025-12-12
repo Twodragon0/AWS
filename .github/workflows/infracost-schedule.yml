@@ -1,0 +1,74 @@
+name: Infracost Schedule
+
+on:
+  schedule:
+    # Run weekly on Monday at 4:00 UTC
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+
+env:
+  INFRACOST_API_KEY: ${{ secrets.INFRACOST_API_KEY }}
+  INFRACOST_SKIP_UPDATE_CHECK: true
+
+jobs:
+  infracost-diff:
+    name: Infracost Diff
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    strategy:
+      matrix:
+        project:
+          - name: EC2
+            path: EC2/terraform
+          - name: EKS
+            path: EKS
+          - name: CloudFront
+            path: Cloudfront/s3-cloudfront-cdn
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Infracost
+        uses: infracost/actions/setup@v3
+        with:
+          api-key: ${{ env.INFRACOST_API_KEY }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.0
+
+      - name: Generate Infracost breakdown
+        id: infracost-breakdown
+        continue-on-error: true
+        run: |
+          cd ${{ matrix.project.path }}
+          if terraform init -input=false -backend=false 2>&1 | grep -q "Error"; then
+            echo "Terraform init failed, trying direct analysis..."
+            infracost breakdown --path . --format json --out-file infracost.json || true
+          else
+            if terraform plan -out=tfplan.binary -input=false -refresh=false 2>&1 | grep -q "Error"; then
+              echo "Terraform plan failed, trying direct analysis..."
+              infracost breakdown --path . --format json --out-file infracost.json || true
+            else
+              terraform show -json tfplan.binary > tfplan.json 2>/dev/null || true
+              if [ -f tfplan.json ]; then
+                infracost breakdown --path tfplan.json --format json --out-file infracost.json || true
+              else
+                infracost breakdown --path . --format json --out-file infracost.json || true
+              fi
+            fi
+          fi
+
+      - name: Upload Infracost results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: infracost-${{ matrix.project.name }}
+          path: ${{ matrix.project.path }}/infracost.json
+          retention-days: 30
+          if-no-files-found: ignore
+
