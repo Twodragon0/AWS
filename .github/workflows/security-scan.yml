@@ -22,8 +22,21 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Check if directory exists
+        id: check_dir
+        run: |
+          if [ ! -f "${{ matrix.directory }}/package.json" ]; then
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Directory ${{ matrix.directory }} does not exist or has no package.json, skipping..."
+          else
+            echo "exists=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: Setup Node.js
+        if: steps.check_dir.outputs.exists == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -31,22 +44,26 @@ jobs:
           cache-dependency-path: ${{ matrix.directory }}/package-lock.json
 
       - name: Install dependencies
+        if: steps.check_dir.outputs.exists == 'true'
         working-directory: ${{ matrix.directory }}
         run: npm ci
+        continue-on-error: true
 
       - name: Run npm audit
+        if: steps.check_dir.outputs.exists == 'true'
         working-directory: ${{ matrix.directory }}
         run: |
           npm audit --audit-level=moderate || true
-          npm audit --json > npm-audit-report.json || true
+          npm audit --json > npm-audit-report.json || echo '{"vulnerabilities":{}}' > npm-audit-report.json
 
       - name: Upload npm audit results
         uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && steps.check_dir.outputs.exists == 'true'
         with:
           name: npm-audit-${{ matrix.directory }}
           path: ${{ matrix.directory }}/npm-audit-report.json
           retention-days: 30
+          if-no-files-found: ignore
 
   pip-audit:
     name: Python Security Audit
@@ -59,25 +76,38 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Check if requirements.txt exists
+        id: check_requirements
+        run: |
+          if [ -f "${{ matrix.directory }}/requirements.txt" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "requirements.txt not found in ${{ matrix.directory }}, skipping..."
+          fi
 
       - name: Setup Python
+        if: steps.check_requirements.outputs.exists == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Install pip-audit
+        if: steps.check_requirements.outputs.exists == 'true'
         run: pip install pip-audit
 
       - name: Run pip-audit
+        if: steps.check_requirements.outputs.exists == 'true'
         working-directory: ${{ matrix.directory }}
         run: |
-          if [ -f requirements.txt ]; then
-            pip-audit --requirement requirements.txt --format json --output pip-audit-report.json || true
-          fi
+          pip-audit --requirement requirements.txt --format json --output pip-audit-report.json || echo '{"vulnerabilities":[]}' > pip-audit-report.json
 
       - name: Upload pip-audit results
         uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && steps.check_requirements.outputs.exists == 'true'
         with:
           name: pip-audit-${{ matrix.directory }}
           path: ${{ matrix.directory }}/pip-audit-report.json

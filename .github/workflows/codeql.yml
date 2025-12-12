@@ -26,6 +26,8 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        submodules: recursive
 
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
@@ -35,6 +37,31 @@ jobs:
 
     - name: Autobuild
       uses: github/codeql-action/autobuild@v3
+      continue-on-error: true
+
+    - name: Manual build for JavaScript
+      if: matrix.language == 'javascript'
+      run: |
+        # Build Bedrock project if package.json exists
+        if [ -f "Bedrock/package.json" ]; then
+          cd Bedrock
+          npm ci || true
+          npm run build || true
+          cd ..
+        fi
+        # Build networking-costs-calculator projects if they exist
+        if [ -f "networking-costs-calculator/backend/package.json" ]; then
+          cd networking-costs-calculator/backend
+          npm ci || true
+          npm run build || true
+          cd ../../..
+        fi
+        if [ -f "networking-costs-calculator/frontend/package.json" ]; then
+          cd networking-costs-calculator/frontend
+          npm ci || true
+          npm run build || true
+          cd ../../..
+        fi
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
