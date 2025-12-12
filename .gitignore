@@ -63,3 +63,14 @@ node_modules/
 package-lock.json
 yarn.lock
 pnpm-lock.yaml
+
+# CDK build artifacts (may contain secrets)
+**/cdk.out/
+cdk.out/
+
+# Terraform state files (may contain sensitive data)
+*.tfstate
+*.tfstate.*
+terraform.tfstate.backup
+**/.terraform/
+.terraform/
