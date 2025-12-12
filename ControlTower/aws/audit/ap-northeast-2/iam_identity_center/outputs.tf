@@ -22,7 +22,7 @@ output "security_summary" {
   value = {
     total_permission_sets_defined = 3
     permission_sets = {
-      production_security = "pset_prd_c_security"
+      production_security  = "pset_prd_c_security"
       development_security = "pset_dev_c_security"
       administrator_access = "pset_c_administrator_access"
     }
@@ -36,9 +36,9 @@ output "security_summary" {
 output "configuration_info" {
   description = "Configuration information for reference"
   value = {
-    region                = var.region
-    environment           = var.environment
-    common_tags           = var.common_tags
-    workspace_role_arn    = try(local.workspace_iam_roles[terraform.workspace], "not_set")
+    region             = var.region
+    environment        = var.environment
+    common_tags        = var.common_tags
+    workspace_role_arn = try(local.workspace_iam_roles[terraform.workspace], "not_set")
   }
 }
