@@ -54,3 +54,12 @@ security-scan-results/
 # Logs
 *.log
 logs/
+
+# Node modules
+node_modules/
+**/node_modules/
+
+# Package manager files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
