@@ -16,3 +16,41 @@ crash.*.log
 # CLI configuration files
 .terraformrc
 terraform.rc
+
+# Security and secrets
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.jks
+secrets/
+.secrets
+.env
+.env.local
+.env.*.local
+*.secret
+credentials.json
+aws-credentials
+*.tfvars
+!*.tfvars.example
+
+# Security scan reports
+*-audit-report.json
+npm-audit-report.json
+pip-audit-report.json
+trivy-results.sarif
+security-scan-results/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
