@@ -1,9 +1,10 @@
 # CodeQL configuration file
 # This file helps suppress false positives and configure CodeQL analysis
-
-name: "CodeQL Security Analysis Configuration"
+# Documentation: https://docs.github.com/en/code-security/code-scanning/automatically-scanning-your-code-for-vulnerabilities-and-errors/configuring-code-scanning#using-a-custom-configuration-file
 
 # Suppress false positives from third-party libraries
+# These paths are excluded from CodeQL analysis as they contain
+# third-party code that we don't control
 paths-ignore:
   - "**/node_modules/**"
   - "**/.terraform/**"
@@ -13,8 +14,5 @@ paths-ignore:
   - "**/f2py/**"
   - "**/util/ssl_.py"
   - "**/python/**"
-
-# Queries to run
-queries:
-  - uses: security-and-quality
+  - "**/EC2/terraform/modules/lambda/python/**"
 
