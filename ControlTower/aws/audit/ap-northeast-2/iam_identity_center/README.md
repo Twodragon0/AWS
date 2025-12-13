@@ -1,107 +1,60 @@
-# IAM Identity Center Configuration for c_security Group
+# IAM Identity Center Terraform Configuration
 
-이 모듈은 AWS IAM Identity Center (이전 AWS SSO)를 사용하여 `c_security` 그룹에 대한 접근 권한을 관리합니다.
+## Overview
 
-## 개요
+This directory contains Terraform configuration for AWS IAM Identity Center (formerly AWS SSO) to manage access for the `c_security` group across multiple AWS accounts.
 
-이 구성은 다음을 제공합니다:
+## Terraform Backend Configuration
 
-- **Production 환경 권한 세트**: 보안 모니터링 및 감사 접근
-- **Development 환경 권한 세트**: 보안 테스트 및 문제 해결 접근
-- **관리자 접근 권한 세트**: 감사 계정에 대한 전체 관리자 권한
+This module uses remote state stored in S3 with DynamoDB state locking:
 
-## 현재 구성
+- **S3 Bucket**: `aws-sso-tfstate`
+- **State Key**: `iam_identity_center/terraform.tfstate`
+- **DynamoDB Table**: `TerraformStateLock`
+- **Region**: `ap-northeast-2`
 
-### 계정 할당
+### Backend Resources
 
-- **Audit 계정** (`617558666252`): `c_security` 그룹에 관리자 권한 할당
+The S3 bucket and DynamoDB table are managed separately in:
+- `EC2/terraform/initial_setup/` - Contains the Terraform state backend resources
 
-### Permission Sets
+**Important**: Do NOT define `aws_s3_bucket` or `aws_dynamodb_table` resources in this directory. These are shared resources managed centrally.
 
-1. **pset_prd_c_security**: Production 환경용 보안 권한
-2. **pset_dev_c_security**: Development 환경용 보안 권한
-3. **pset_c_administrator_access**: 관리자 접근 권한 (감사 계정 전용)
+## Usage
 
-## 보안 모범 사례
+### Prerequisites
 
-### 세션 지속 시간
+1. Ensure the S3 bucket and DynamoDB table exist:
+   ```bash
+   cd ../../../../EC2/terraform/initial_setup
+   terraform init
+   terraform apply
+   ```
 
-- **표준 권한**: 4시간 (PT4H)
-- **관리자 권한**: 2시간 (PT2H) - 보안 강화
+2. Initialize this Terraform configuration:
+   ```bash
+   cd ControlTower/aws/audit/ap-northeast-2/iam_identity_center
+   terraform init
+   ```
 
-### 최소 권한 원칙
-
-- Production 환경: 읽기 전용 + 보안 감사 권한
-- Development 환경: 읽기 전용 + 문제 해결 권한
-- Audit 계정: 관리자 권한 (필요시에만 사용)
-
-### 태깅
-
-모든 리소스에 다음 태그가 적용됩니다:
-
-- `ManagedBy`: Terraform
-- `Environment`: production/development/audit
-- `PermissionLevel`: security-team/administrator
-- `Purpose`: security-monitoring/security-testing/audit-and-compliance
-- `Compliance`: ISMS-P
-- `CostCenter`: security
-
-## 사용 방법
-
-### 초기화
-
-```bash
-terraform init
-```
-
-### 계획 확인
+### Apply Configuration
 
 ```bash
 terraform plan
-```
-
-### 적용
-
-```bash
 terraform apply
 ```
 
-### 비용 추정
+## Security Best Practices
 
-```bash
-infracost breakdown --path .
-```
+- Least privilege principle: Permission sets are scoped to specific environments
+- Session duration limits: Shorter sessions for administrative access
+- Comprehensive tagging: For cost allocation, compliance, and audit trails
+- Separation of duties: Different permission sets for prod/dev environments
 
-**참고**: IAM Identity Center는 무료 서비스입니다. 추가 비용이 발생하지 않습니다.
+## State Management
 
-## 변수
-
-주요 변수는 `variables.tf`에 정의되어 있습니다:
-
-- `common_tags`: 공통 태그
-- `session_duration`: 표준 세션 지속 시간 (기본값: PT4H)
-- `administrator_session_duration`: 관리자 세션 지속 시간 (기본값: PT2H)
-
-## 출력
-
-`outputs.tf`에서 다음 정보를 확인할 수 있습니다:
-
-- Permission Set ARNs
-- Permission Set IDs
-- 계정 할당 정보
-- 보안 구성 요약
-
-## 향후 확장
-
-Production 및 Development 계정에 권한을 할당하려면:
-
-1. `locals.tf`에서 계정 ID 추가
-2. `main.tf`의 `account_assignments` 섹션에서 주석 해제 및 구성
-
-## 참고 자료
-
-- [AWS IAM Identity Center 문서](https://docs.aws.amazon.com/singlesignon/latest/userguide/what-is.html)
-- [AWS Control Tower 문서](https://docs.aws.amazon.com/controltower/latest/userguide/what-is-control-tower.html)
-- [Terraform AWS Provider 문서](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
-
-
+The Terraform state is stored remotely in S3 with the following security features:
+- Encryption at rest (AES256)
+- Versioning enabled for state file recovery
+- DynamoDB state locking to prevent concurrent modifications
+- Point-in-time recovery enabled for DynamoDB table
