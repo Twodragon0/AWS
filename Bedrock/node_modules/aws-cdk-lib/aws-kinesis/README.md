@@ -15,6 +15,11 @@ intake and aggregation.
     - [Write Permissions](#write-permissions)
     - [Custom Permissions](#custom-permissions)
   - [Metrics](#metrics)
+    - [Shard-level Metrics](#shard-level-metrics)
+- [Stream Consumers](#stream-consumers)
+  - [Read Permissions](#read-permissions-1)
+- [Resource Policy](#resource-policy)
+
 
 ## Streams
 
@@ -185,4 +190,157 @@ stream.metricGetRecordsSuccess();
 
 // using pre-defined and overriding the statistic
 stream.metricGetRecordsSuccess({ statistic: 'Maximum' });
+```
+
+#### Shard-level Metrics
+
+You can enable enhanced shard-level metrics for your Kinesis stream to get detailed monitoring of individual shards. Shard-level metrics provide more granular insights into the performance and health of your stream.
+
+```ts
+const stream = new kinesis.Stream(this, 'MyStream', {
+  shardLevelMetrics: [kinesis.ShardLevelMetrics.ALL],
+});
+```
+
+You can also specify individual metrics that you want to monitor:
+
+```ts
+const stream = new kinesis.Stream(this, 'MyStream', {
+  shardLevelMetrics: [
+    kinesis.ShardLevelMetrics.INCOMING_BYTES,
+    kinesis.ShardLevelMetrics.INCOMING_RECORDS,
+    kinesis.ShardLevelMetrics.ITERATOR_AGE_MILLISECONDS,
+    kinesis.ShardLevelMetrics.OUTGOING_BYTES,
+    kinesis.ShardLevelMetrics.OUTGOING_RECORDS,
+    kinesis.ShardLevelMetrics.READ_PROVISIONED_THROUGHPUT_EXCEEDED,
+    kinesis.ShardLevelMetrics.WRITE_PROVISIONED_THROUGHPUT_EXCEEDED,
+  ],
+});
+```
+
+Available shard-level metrics include:
+
+- `INCOMING_BYTES` - The number of bytes successfully put to the shard
+- `INCOMING_RECORDS` - The number of records successfully put to the shard
+- `ITERATOR_AGE_MILLISECONDS` - The age of the last record in all GetRecords calls made against a shard
+- `OUTGOING_BYTES` - The number of bytes retrieved from the shard
+- `OUTGOING_RECORDS` - The number of records retrieved from the shard
+- `READ_PROVISIONED_THROUGHPUT_EXCEEDED` - The number of GetRecords calls throttled for the shard
+- `WRITE_PROVISIONED_THROUGHPUT_EXCEEDED` - The number of records rejected due to throttling for the shard
+- `ALL` - All available metrics
+
+Note: You cannot specify `ALL` together with other individual metrics. If you want all metrics, use `ALL` alone.
+
+For more information about shard-level metrics, see [Monitoring the Amazon Kinesis Data Streams Service with Amazon CloudWatch](https://docs.aws.amazon.com/streams/latest/dev/monitoring-with-cloudwatch.html#kinesis-metrics-shard).
+
+## Stream Consumers
+
+Creating stream consumers allow consumers to receive data from the stream using enhanced fan-out at a rate of up to 2 MiB per second for every shard.
+This rate is unaffected by the total number of consumers that read from the same stream.
+
+For more information, see [Develop enhanced fan-out consumers with dedicated throughput](https://docs.aws.amazon.com/streams/latest/dev/enhanced-consumers.html).
+
+To create and associate a stream consumer with a stream
+
+```ts
+const stream = new kinesis.Stream(this, 'MyStream');
+
+const streamConsumer = new kinesis.StreamConsumer(this, 'MyStreamConsumer', {
+  streamConsumerName: 'MyStreamConsumer',
+  stream,
+});
+```
+
+#### Read Permissions
+
+Grant `read` access to a stream consumer, and the stream it is registered with, by calling the `grantRead()` API.
+
+```ts
+const lambdaRole = new iam.Role(this, 'Role', {
+  assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+  description: 'Example role...',
+});
+
+const stream = new kinesis.Stream(this, 'MyEncryptedStream', {
+  encryption: kinesis.StreamEncryption.KMS,
+});
+const streamConsumer = new kinesis.StreamConsumer(this, 'MyStreamConsumer', {
+  streamConsumerName: 'MyStreamConsumer',
+  stream,
+});
+
+// give lambda permissions to read stream via the stream consumer
+streamConsumer.grantRead(lambdaRole);
+```
+
+In addition to stream's permissions, the following permissions are provided to a service principal by the `grantRead()` API:
+
+- `kinesis:DescribeStreamConsumer`,
+- `kinesis:SubscribeToShard`,
+
+## Resource Policy
+
+You can create a resource policy for a data stream or a stream consumer.
+For more information, see [Controlling access to Amazon Kinesis Data Streams resources using IAM](https://docs.aws.amazon.com/streams/latest/dev/controlling-access.html).
+
+A resource policy is automatically created when `addToResourcePolicy` is called, if one doesn't already exist.
+
+Using `addToResourcePolicy` is the simplest way to add a resource policy:
+
+```ts
+const stream = new kinesis.Stream(this, 'MyStream');
+const streamConsumer = new kinesis.StreamConsumer(this, 'MyStreamConsumer', {
+  streamConsumerName: 'MyStreamConsumer',
+  stream,
+});
+
+// create a stream resource policy via addToResourcePolicy method
+stream.addToResourcePolicy(new iam.PolicyStatement({
+  resources: [stream.streamArn],
+  actions: ['kinesis:GetRecords'],
+  principals: [new iam.AnyPrincipal()],
+}));
+
+// create a stream consumer resource policy via addToResourcePolicy method
+streamConsumer.addToResourcePolicy(new iam.PolicyStatement({
+  resources: [stream.streamArn],
+  actions: ['kinesis:DescribeStreamConsumer'],
+  principals: [new iam.AnyPrincipal()],
+}));
+```
+
+You can create a resource manually by using `ResourcePolicy`.
+Also, you can set a custom policy document to `ResourcePolicy`.
+If not, a blank policy document will be set.
+
+```ts
+const stream = new kinesis.Stream(this, 'MyStream');
+const streamConsumer = new kinesis.StreamConsumer(this, 'MyStreamConsumer', {
+  streamConsumerName: 'MyStreamConsumer',
+  stream,
+});
+
+// create a custom policy document
+const policyDocument = new iam.PolicyDocument({
+  assignSids: true,
+  statements: [
+    new iam.PolicyStatement({
+      actions: ['kinesis:GetRecords'],
+      resources: [stream.streamArn],
+      principals: [new iam.AnyPrincipal()],
+    }),
+  ],
+});
+
+// create a stream resource policy manually
+new kinesis.ResourcePolicy(this, 'ResourcePolicy', {
+  stream,
+  policyDocument,
+});
+
+// create a stream consumer resource policy manually
+new kinesis.ResourcePolicy(this, 'ResourcePolicy', {
+  streamConsumer,
+  policyDocument,
+});
 ```

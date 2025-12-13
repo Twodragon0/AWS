@@ -24,6 +24,8 @@ import json
 import boto3
 import logging
 import time
+import html
+import urllib.parse
 from slack_bolt import App
 from slack_bolt.adapter.aws_lambda import SlackRequestHandler
 from slack_sdk import WebClient
@@ -442,10 +444,6 @@ SlackRequestHandler.clear_all_log_handlers()
 logging.basicConfig(format="%(asctime)s %(message)s", level=logging.DEBUG)
 
 # Lambda handler method.
-# Import urllib.parse for URL encoding
-# This package is used to sanitize input before logging to prevent log injection attacks
-import urllib.parse
-import html
 
 def handler(event, context):
     try:
