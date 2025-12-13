@@ -9,10 +9,17 @@ on:
     # Run weekly on Monday at 3:00 UTC
     - cron: '0 3 * * 1'
 
+permissions:
+  contents: read
+  security-events: write
+
 jobs:
   npm-audit:
     name: NPM Security Audit
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     strategy:
       matrix:
         directory:
@@ -68,6 +75,9 @@ jobs:
   pip-audit:
     name: Python Security Audit
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     strategy:
       matrix:
         directory:

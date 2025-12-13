@@ -72,6 +72,30 @@ resource "aws_s3_bucket_lifecycle_configuration" "terraform_state_bucket_lifecyc
   }
 }
 
+# S3 버킷 크로스 리전 복제 설정 (선택 사항)
+# 주의: 크로스 리전 복제는 추가 비용이 발생하며,
+# DR(Disaster Recovery) 요구사항이 있는 경우에만 활성화하세요.
+# 
+# 크로스 리전 복제를 활성화하려면:
+# 1. 대상 리전의 S3 버킷 생성
+# 2. IAM 역할 생성 (복제 권한)
+# 3. 아래 주석을 해제하고 설정
+#
+# resource "aws_s3_bucket_replication_configuration" "terraform_state_bucket_replication" {
+#   role   = aws_iam_role.replication.arn
+#   bucket = aws_s3_bucket.terraform_state_bucket.id
+# 
+#   rule {
+#     id     = "replicate-to-backup-region"
+#     status = "Enabled"
+# 
+#     destination {
+#       bucket        = aws_s3_bucket.terraform_state_bucket_backup.arn
+#       storage_class = "STANDARD"
+#     }
+#   }
+# }
+
 # DynamoDB 테이블 - Terraform State Lock
 resource "aws_dynamodb_table" "terraform_state_lock" {
   name         = "TerraformStateLock"

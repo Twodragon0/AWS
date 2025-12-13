@@ -1,0 +1,20 @@
+# CodeQL configuration file
+# This file helps suppress false positives and configure CodeQL analysis
+
+name: "CodeQL Security Analysis Configuration"
+
+# Suppress false positives from third-party libraries
+paths-ignore:
+  - "**/node_modules/**"
+  - "**/.terraform/**"
+  - "**/cdk.out/**"
+  - "**/boto3/**"
+  - "**/botocore/**"
+  - "**/f2py/**"
+  - "**/util/ssl_.py"
+  - "**/python/**"
+
+# Queries to run
+queries:
+  - uses: security-and-quality
+

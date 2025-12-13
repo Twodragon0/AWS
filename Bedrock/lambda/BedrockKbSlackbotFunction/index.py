@@ -148,8 +148,12 @@ def get_parameter(parameter_name):
             return parameter_value
             
     except Exception as e:
-        print(f"Error getting parameter {parameter_name}: {str(e)}")
-        raise e
+        # SECURITY: Do not log parameter names or error details that might contain sensitive information
+        # Only log generic error message without exposing parameter names or values
+        error_type = type(e).__name__
+        logging.error(f"Error retrieving parameter from SSM: {error_type}")
+        # Re-raise with sanitized error message
+        raise Exception(f"Failed to retrieve parameter from SSM: {error_type}") from e
 
 # Get parameter names from environment variables
 bot_token_parameter = os.environ['SLACK_BOT_TOKEN_PARAMETER']

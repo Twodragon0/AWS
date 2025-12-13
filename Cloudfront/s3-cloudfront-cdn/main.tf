@@ -34,7 +34,66 @@ variable "project_name" {
 resource "aws_s3_bucket" "cdn_bucket" {
   bucket        = var.domain_name
   force_destroy = true
+
+  tags = {
+    Name        = "${var.project_name}-cdn-bucket"
+    ManagedBy   = "Terraform"
+    Environment = "Production"
+    Purpose     = "CDN Static Content"
+  }
 }
+
+# S3 버킷 버전 관리 활성화 (보안 및 복구를 위해)
+resource "aws_s3_bucket_versioning" "cdn_bucket_versioning" {
+  bucket = aws_s3_bucket.cdn_bucket.id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+# S3 버킷 암호화 설정
+resource "aws_s3_bucket_server_side_encryption_configuration" "cdn_bucket_encryption" {
+  bucket = aws_s3_bucket.cdn_bucket.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+    bucket_key_enabled = false
+  }
+}
+
+# S3 버킷 ACL 비활성화 (버킷 소유자만 접근 가능)
+resource "aws_s3_bucket_acl" "cdn_bucket_acl" {
+  bucket = aws_s3_bucket.cdn_bucket.id
+  acl    = "private"
+  depends_on = [aws_s3_bucket_ownership_controls.cdn_bucket_ownership]
+}
+
+# S3 버킷 크로스 리전 복제 설정 (선택 사항)
+# 주의: 크로스 리전 복제는 추가 비용이 발생하며, 
+# DR(Disaster Recovery) 요구사항이 있는 경우에만 활성화하세요.
+# 
+# 크로스 리전 복제를 활성화하려면:
+# 1. 대상 리전의 S3 버킷 생성
+# 2. IAM 역할 생성 (복제 권한)
+# 3. 아래 주석을 해제하고 설정
+#
+# resource "aws_s3_bucket_replication_configuration" "cdn_bucket_replication" {
+#   role   = aws_iam_role.replication.arn
+#   bucket = aws_s3_bucket.cdn_bucket.id
+# 
+#   rule {
+#     id     = "replicate-to-backup-region"
+#     status = "Enabled"
+# 
+#     destination {
+#       bucket        = aws_s3_bucket.cdn_bucket_backup.arn
+#       storage_class = "STANDARD"
+#     }
+#   }
+# }
 
 resource "aws_s3_bucket_public_access_block" "cdn_bucket_pab" {
   bucket = aws_s3_bucket.cdn_bucket.id
@@ -47,7 +106,7 @@ resource "aws_s3_bucket_public_access_block" "cdn_bucket_pab" {
 resource "aws_s3_bucket_ownership_controls" "cdn_bucket_ownership" {
   bucket = aws_s3_bucket.cdn_bucket.id
   rule {
-    object_ownership = "BucketOwnerPreferred"
+    object_ownership = "BucketOwnerEnforced"  # ACL 비활성화를 위해 BucketOwnerEnforced 사용
   }
 }
 
