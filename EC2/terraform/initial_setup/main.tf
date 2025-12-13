@@ -15,6 +15,10 @@
 resource "aws_s3_bucket" "terraform_state_bucket" {
   bucket = "aws-sso-tfstate"  # 고유한 S3 버킷 이름이어야 합니다.
 
+  # 버킷이 비어있지 않아도 삭제 가능하도록 설정
+  # 주의: 이 설정은 버킷 내 모든 객체를 삭제할 수 있게 합니다
+  force_destroy = true
+
   tags = {
     Name        = "TerraformStateBucket"
     ManagedBy   = "Terraform"

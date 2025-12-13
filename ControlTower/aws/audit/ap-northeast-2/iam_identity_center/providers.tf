@@ -56,11 +56,12 @@ provider "aws" {
   # Default Tags
   # ===========================================================================
   # Tags applied to all resources created by this provider
+  # Note: timestamp() is removed to avoid constant changes in tags_all
+  # which causes provider inconsistencies with modules that manage their own tags
   default_tags {
     tags = merge(var.common_tags, {
-      Module      = "iam-identity-center"
-      Workspace   = terraform.workspace
-      LastUpdated = timestamp()
+      Module    = "iam-identity-center"
+      Workspace = terraform.workspace
     })
   }
 }
