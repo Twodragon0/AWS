@@ -56,6 +56,8 @@ module "aws-iam-identity-center" {
         "arn:aws:iam::aws:policy/AWSCodeCommitFullAccess", # Code repository access
 
         # IAM Management (for security operations)
+        # SECURITY NOTE: IAMFullAccess is required for security team operations
+        # but should be monitored via CloudTrail and restricted to security accounts
         "arn:aws:iam::aws:policy/IAMFullAccess", # IAM policy/role management
       ]
       customer_managed_policies = [
@@ -90,9 +92,11 @@ module "aws-iam-identity-center" {
         "arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess", # CloudWatch metrics/logs
 
         # Full Access (for development/testing)
+        # SECURITY NOTE: These full access policies are for dev environment only
+        # Production environment should use read-only or least-privilege policies
         "arn:aws:iam::aws:policy/AmazonSSMFullAccess",      # Systems Manager for troubleshooting
         "arn:aws:iam::aws:policy/AWSCloudtrail_FullAccess", # CloudTrail log analysis
-        "arn:aws:iam::aws:policy/IAMFullAccess",            # IAM policy/role management
+        "arn:aws:iam::aws:policy/IAMFullAccess",            # IAM policy/role management (dev only)
       ]
       customer_managed_policies = [
         "policy_pset_c_security" # Custom security policies
@@ -112,11 +116,17 @@ module "aws-iam-identity-center" {
     # Full administrative access - Use with extreme caution
     # Shorter session duration for enhanced security
     # Should only be assigned to audit and security accounts
+    # 
+    # SECURITY WARNING: This permission set provides full AWS access.
+    # - Requires MFA for all users
+    # - Should be restricted to audit/security accounts only
+    # - Session duration is limited to 2 hours (PT2H)
+    # - All access is logged via CloudTrail
     pset_c_administrator_access = {
-      description      = "c_security permission set for AdministratorAccess - Full administrative privileges (restricted to audit/security accounts)"
-      session_duration = var.administrator_session_duration # Shorter session for admin access
+      description      = "c_security permission set for AdministratorAccess - Full administrative privileges (restricted to audit/security accounts). WARNING: Requires MFA and is restricted to audit accounts only."
+      session_duration = var.administrator_session_duration # Shorter session for admin access (PT2H)
       aws_managed_policies = [
-        "arn:aws:iam::aws:policy/AdministratorAccess", # Full AWS access
+        "arn:aws:iam::aws:policy/AdministratorAccess", # Full AWS access - USE WITH CAUTION
       ]
       tags = merge(var.common_tags, {
         Environment     = "audit"
@@ -126,6 +136,8 @@ module "aws-iam-identity-center" {
         CostCenter      = "security"
         SecurityLevel   = "critical"
         RequireMFA      = "true"
+        AccessType      = "full-admin"
+        Restriction     = "audit-accounts-only"
       })
     }
   }
