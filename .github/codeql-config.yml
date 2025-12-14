@@ -15,4 +15,12 @@ paths-ignore:
   - "**/util/ssl_.py"
   - "**/python/**"
   - "**/EC2/terraform/modules/lambda/python/**"
+  - "**/__pycache__/**"
+  - "**/*.pyc"
+  - "**/.git/**"
+
+# Query configuration
+queries:
+  # Use security and quality queries
+  - uses: security-and-quality
 

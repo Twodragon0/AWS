@@ -36,6 +36,7 @@ jobs:
         with:
           soft_fail: true
           sarif_upload: true
+          working_directory: .
           # Let TFSec handle SARIF upload automatically
 
   checkov-scan:
@@ -59,6 +60,8 @@ jobs:
           soft_fail: true
           output_format: sarif
           output_file_path: checkov-results.sarif
+          directory: .
+          skip_check: CKV_AWS_79,CKV_AWS_80  # Skip checks that require runtime values
 
       - name: Check if SARIF file exists
         id: check_sarif

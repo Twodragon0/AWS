@@ -74,3 +74,29 @@ cdk.out/
 terraform.tfstate.backup
 **/.terraform/
 .terraform/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# AWS credentials and config
+.aws/
+*.aws
+
+# IDE specific files
+*.iml
+.project
+.classpath
+.settings/
+
+# OS specific files
+Thumbs.db
+*.tmp
+*.temp

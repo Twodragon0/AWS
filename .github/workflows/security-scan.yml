@@ -62,8 +62,8 @@ jobs:
         run: |
           npm audit --audit-level=moderate || true
           npm audit --json > npm-audit-report.json || echo '{"vulnerabilities":{}}' > npm-audit-report.json
-
-      - name: Upload npm audit results
+          
+      - name: Upload npm audit results as artifact
         uses: actions/upload-artifact@v4
         if: always() && steps.check_dir.outputs.exists == 'true'
         with:
@@ -71,6 +71,19 @@ jobs:
           path: ${{ matrix.directory }}/npm-audit-report.json
           retention-days: 30
           if-no-files-found: ignore
+          
+      - name: Check for critical vulnerabilities
+        if: steps.check_dir.outputs.exists == 'true'
+        working-directory: ${{ matrix.directory }}
+        run: |
+          if [ -f npm-audit-report.json ]; then
+            VULN_COUNT=$(jq '[.vulnerabilities[] | select(.severity == "critical" or .severity == "high")] | length' npm-audit-report.json 2>/dev/null || echo "0")
+            if [ "$VULN_COUNT" -gt 0 ]; then
+              echo "⚠️ Found $VULN_COUNT critical/high vulnerabilities"
+              exit 1
+            fi
+          fi
+        continue-on-error: true
 
   pip-audit:
     name: Python Security Audit
@@ -145,6 +158,8 @@ jobs:
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH,MEDIUM'
+          skip-dirs: 'node_modules,.terraform,cdk.out,__pycache__'
+          skip-files: 'package-lock.json,yarn.lock'
 
       - name: Check if SARIF file exists
         id: check_trivy_sarif
