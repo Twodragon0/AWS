@@ -19,8 +19,6 @@ paths-ignore:
   - "**/*.pyc"
   - "**/.git/**"
 
-# Query configuration
-queries:
-  # Use security and quality queries
-  - uses: security-and-quality
+# Note: queries configuration is specified in the workflow file
+# to avoid conflicts with GitHub's default CodeQL setup
 
