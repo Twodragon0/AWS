@@ -63,11 +63,18 @@ jobs:
           npm audit --audit-level=moderate || true
           npm audit --json > npm-audit-report.json || echo '{"vulnerabilities":{}}' > npm-audit-report.json
           
+      - name: Generate artifact name
+        if: steps.check_dir.outputs.exists == 'true'
+        id: artifact_name
+        run: |
+          ARTIFACT_NAME="npm-audit-$(echo '${{ matrix.directory }}' | tr '/' '-')"
+          echo "name=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
+          
       - name: Upload npm audit results as artifact
         uses: actions/upload-artifact@v4
         if: always() && steps.check_dir.outputs.exists == 'true'
         with:
-          name: npm-audit-${{ matrix.directory }}
+          name: ${{ steps.artifact_name.outputs.name }}
           path: ${{ matrix.directory }}/npm-audit-report.json
           retention-days: 30
           if-no-files-found: ignore
@@ -128,11 +135,18 @@ jobs:
         run: |
           pip-audit --requirement requirements.txt --format json --output pip-audit-report.json || echo '{"vulnerabilities":[]}' > pip-audit-report.json
 
+      - name: Generate artifact name
+        if: steps.check_requirements.outputs.exists == 'true'
+        id: artifact_name
+        run: |
+          ARTIFACT_NAME="pip-audit-$(echo '${{ matrix.directory }}' | tr '/' '-')"
+          echo "name=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
+
       - name: Upload pip-audit results
         uses: actions/upload-artifact@v4
         if: always() && steps.check_requirements.outputs.exists == 'true'
         with:
-          name: pip-audit-${{ matrix.directory }}
+          name: ${{ steps.artifact_name.outputs.name }}
           path: ${{ matrix.directory }}/pip-audit-report.json
           retention-days: 30
           if-no-files-found: ignore
