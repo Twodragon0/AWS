@@ -113,7 +113,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always() && steps.check_requirements.outputs.exists == 'true'
         with:
-          name: pip-audit-${{ matrix.directory }}
+          name: pip-audit-${{ matrix.directory | replace('/', '-') }}
           path: ${{ matrix.directory }}/pip-audit-report.json
           retention-days: 30
           if-no-files-found: ignore
