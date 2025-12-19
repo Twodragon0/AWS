@@ -684,8 +684,9 @@ class InstanceMetadataFetcher(IMDSFetcher):
                     f"the next {refresh_interval_with_jitter/60:.0f} minutes."
                 )
         except ValueError:
+            # SECURITY: Do not log sensitive credential information
             logger.debug(
-                f"Unable to parse expiry_time in {credentials['expiry_time']}"
+                "Unable to parse expiry_time in credentials"
             )
 
 
@@ -2547,8 +2548,13 @@ class S3EndpointSetter:
             return False
 
         # Accelerate is only valid for Amazon endpoints.
-        netloc = urlsplit(self._endpoint_url).netloc
-        if not netloc.endswith('amazonaws.com'):
+        # SECURITY: Use case-insensitive comparison and validate domain properly
+        try:
+            netloc = urlsplit(self._endpoint_url).netloc
+            netloc_lower = netloc.lower()
+            if not netloc_lower.endswith('.amazonaws.com'):
+                return False
+        except (ValueError, AttributeError):
             return False
 
         # The first part of the url should always be s3-accelerate.
@@ -3463,10 +3469,15 @@ def is_s3_accelerate_url(url):
         return False
 
     # Accelerate is only valid for Amazon endpoints.
-    url_parts = urlsplit(url)
-    if not url_parts.netloc.endswith(
-        'amazonaws.com'
-    ) or url_parts.scheme not in ['https', 'http']:
+    # SECURITY: Use case-insensitive comparison and validate domain properly
+    try:
+        url_parts = urlsplit(url)
+        if url_parts.scheme not in ['https', 'http']:
+            return False
+        netloc_lower = url_parts.netloc.lower()
+        if not netloc_lower.endswith('.amazonaws.com'):
+            return False
+    except (ValueError, AttributeError):
         return False
 
     # The first part of the URL must be s3-accelerate.

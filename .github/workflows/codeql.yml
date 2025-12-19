@@ -31,19 +31,42 @@ jobs:
         submodules: false
         fetch-depth: 0
 
+    - name: Check CodeQL default setup status
+      id: check_default_setup
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        echo "Checking CodeQL default setup status..."
+        # Check if default setup is enabled
+        STATUS=$(gh api repos/${{ github.repository }}/code-scanning/default-setup --jq '.state' 2>/dev/null || echo "not_configured")
+        echo "Default setup status: $STATUS"
+        echo "status=$STATUS" >> $GITHUB_OUTPUT
+        
+        if [ "$STATUS" = "configured" ]; then
+          echo "::error::CodeQL default setup is enabled. This will cause conflicts with the custom workflow."
+          echo "::error::Please disable it: https://github.com/${{ github.repository }}/settings/security_analysis"
+          echo "::error::Go to: Settings > Code security and analysis > Code scanning > CodeQL analysis > Disable"
+          echo "default_setup_enabled=true" >> $GITHUB_OUTPUT
+          exit 1
+        else
+          echo "✅ CodeQL default setup is disabled or not configured."
+          echo "default_setup_enabled=false" >> $GITHUB_OUTPUT
+        fi
+
     - name: Initialize CodeQL
+      if: steps.check_default_setup.outputs.default_setup_enabled != 'true'
       uses: github/codeql-action/init@v4
       with:
         languages: ${{ matrix.language }}
 
     - name: Autobuild
-      if: matrix.language == 'python'
+      if: matrix.language == 'python' && steps.check_default_setup.outputs.default_setup_enabled != 'true'
       uses: github/codeql-action/autobuild@v4
       continue-on-error: true
       timeout-minutes: 20
 
     - name: Setup Node.js for JavaScript
-      if: matrix.language == 'javascript'
+      if: matrix.language == 'javascript' && steps.check_default_setup.outputs.default_setup_enabled != 'true'
       uses: actions/setup-node@v4
       with:
         node-version: '20'
@@ -51,7 +74,7 @@ jobs:
         cache: ''
 
     - name: Build JavaScript projects
-      if: matrix.language == 'javascript'
+      if: matrix.language == 'javascript' && steps.check_default_setup.outputs.default_setup_enabled != 'true'
       timeout-minutes: 15
       continue-on-error: true
       run: |
@@ -87,11 +110,11 @@ jobs:
         echo "JavaScript build steps completed"
 
     - name: Perform CodeQL Analysis
+      if: steps.check_default_setup.outputs.default_setup_enabled != 'true'
       uses: github/codeql-action/analyze@v4
       timeout-minutes: 30
       with:
         # Explicitly set upload to true
         upload: true
-        # Add category to avoid conflicts
+        # Add category to avoid conflicts with default setup
         category: "/language:${{ matrix.language }}"
-      continue-on-error: false

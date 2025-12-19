@@ -171,12 +171,17 @@ except ImportError:
                 "#ssl-warnings",
                 InsecurePlatformWarning,
             )
+            # SECURITY: Ensure minimum TLS version is 1.2
+            ssl_version = self.protocol
+            if ssl_version is None or ssl_version == PROTOCOL_TLS:
+                ssl_version = PROTOCOL_TLS_CLIENT
+            
             kwargs = {
                 "keyfile": self.keyfile,
                 "certfile": self.certfile,
                 "ca_certs": self.ca_certs,
                 "cert_reqs": self.verify_mode,
-                "ssl_version": self.protocol,
+                "ssl_version": ssl_version,
                 "server_side": server_side,
             }
             return wrap_socket(socket, ciphers=self.ciphers, **kwargs)

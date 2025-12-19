@@ -14,6 +14,21 @@ resource "aws_vpc" "main" {
   )
 }
 
+# Default Security Group - 모든 트래픽 차단 (Best Practice)
+resource "aws_default_security_group" "default" {
+  vpc_id = aws_vpc.main.id
+
+  ingress = []
+  egress  = []
+
+  tags = merge(
+    {
+      Name = "${var.cluster_name}-default-sg-restricted"
+    },
+    var.tags
+  )
+}
+
 # 인터넷 게이트웨이 생성
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main.id

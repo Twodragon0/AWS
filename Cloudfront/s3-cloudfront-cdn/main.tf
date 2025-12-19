@@ -52,7 +52,25 @@ resource "aws_s3_bucket_versioning" "cdn_bucket_versioning" {
   }
 }
 
-# S3 버킷 암호화 설정
+# S3 버킷 수명 주기 정책
+resource "aws_s3_bucket_lifecycle_configuration" "cdn_bucket_lifecycle" {
+  bucket = aws_s3_bucket.cdn_bucket.id
+
+  rule {
+    id     = "delete_old_versions"
+    status = "Enabled"
+
+    noncurrent_version_expiration {
+      noncurrent_days = 30
+    }
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
+    }
+  }
+}
+
+# S3 버킷 암호화 설정 (AES256 사용 - 비용 효율적이며 Best Practice)
 resource "aws_s3_bucket_server_side_encryption_configuration" "cdn_bucket_encryption" {
   bucket = aws_s3_bucket.cdn_bucket.id
 
@@ -221,7 +239,9 @@ resource "aws_cloudfront_distribution" "cdn_distribution" {
   }
 
   viewer_certificate {
-    cloudfront_default_certificate = true
+    acm_certificate_arn      = aws_acm_certificate_validation.ssl_certificate_validation.certificate_arn
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
   }
 }
 

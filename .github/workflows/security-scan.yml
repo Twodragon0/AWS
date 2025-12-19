@@ -13,6 +13,8 @@ jobs:
   npm-audit:
     name: NPM Security Audit
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       matrix:
         directory:
@@ -66,11 +68,18 @@ jobs:
           npm audit --audit-level=moderate || true
           npm audit --json > npm-audit-report.json || echo '{"vulnerabilities":{}}' > npm-audit-report.json
 
+      - name: Generate artifact name
+        if: always() && steps.check_dir.outputs.exists == 'true'
+        id: artifact_name
+        run: |
+          ARTIFACT_NAME=$(echo "${{ matrix.directory }}" | tr '/' '-')
+          echo "name=npm-audit-${ARTIFACT_NAME}" >> $GITHUB_OUTPUT
+
       - name: Upload npm audit results
         uses: actions/upload-artifact@v4
         if: always() && steps.check_dir.outputs.exists == 'true'
         with:
-          name: npm-audit-${{ matrix.directory | replace('/', '-') }}
+          name: ${{ steps.artifact_name.outputs.name }}
           path: ${{ matrix.directory }}/npm-audit-report.json
           retention-days: 30
           if-no-files-found: ignore
@@ -78,6 +87,8 @@ jobs:
   pip-audit:
     name: Python Security Audit
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       matrix:
         directory:
@@ -119,11 +130,18 @@ jobs:
         run: |
           pip-audit --requirement requirements.txt --format json --output pip-audit-report.json || echo '{"vulnerabilities":[]}' > pip-audit-report.json
 
+      - name: Generate artifact name
+        if: always() && steps.check_requirements.outputs.exists == 'true'
+        id: artifact_name
+        run: |
+          ARTIFACT_NAME=$(echo "${{ matrix.directory }}" | tr '/' '-')
+          echo "name=pip-audit-${ARTIFACT_NAME}" >> $GITHUB_OUTPUT
+
       - name: Upload pip-audit results
         uses: actions/upload-artifact@v4
         if: always() && steps.check_requirements.outputs.exists == 'true'
         with:
-          name: pip-audit-${{ matrix.directory | replace('/', '-') }}
+          name: ${{ steps.artifact_name.outputs.name }}
           path: ${{ matrix.directory }}/pip-audit-report.json
           retention-days: 30
           if-no-files-found: ignore

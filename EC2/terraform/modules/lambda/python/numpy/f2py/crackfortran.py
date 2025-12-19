@@ -922,8 +922,9 @@ selectpattern = re.compile(
 typedefpattern = re.compile(
     r'(?:,(?P<attributes>[\w(),]+))?(::)?(?P<name>\b[a-z$_][\w$]*\b)'
     r'(?:\((?P<params>[\w,]*)\))?\Z', re.I)
+# SECURITY: Optimized regex to prevent ReDoS attacks by using atomic groups and limiting backtracking
 nameargspattern = re.compile(
-    r'\s*(?P<name>\b[\w$]+\b)\s*(@\(@\s*(?P<args>[\w\s,]*)\s*@\)@|)\s*((result(\s*@\(@\s*(?P<result>\b[\w$]+\b)\s*@\)@|))|(bind\s*@\(@\s*(?P<bind>(?:(?!@\)@).)*)\s*@\)@))*\s*\Z', re.I)
+    r'\s*(?P<name>\b[\w$]+\b)\s*(@\(@\s*(?P<args>[\w\s,]*)\s*@\)@|)\s*(?:(?:result(?:\s*@\(@\s*(?P<result>\b[\w$]+\b)\s*@\)@|))|(?:bind\s*@\(@\s*(?P<bind>(?:(?>(?!@\)@).))*)\s*@\)@))*\s*\Z', re.I)
 operatorpattern = re.compile(
     r'\s*(?P<scheme>(operator|assignment))'
     r'@\(@\s*(?P<name>[^)]+)\s*@\)@\s*\Z', re.I)

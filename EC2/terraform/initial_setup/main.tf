@@ -36,7 +36,7 @@ resource "aws_s3_bucket_versioning" "terraform_state_bucket_versioning" {
   }
 }
 
-# S3 버킷 암호화 설정
+# S3 버킷 암호화 설정 (AES256 사용 - 비용 효율적이며 Best Practice)
 resource "aws_s3_bucket_server_side_encryption_configuration" "terraform_state_bucket_encryption" {
   bucket = aws_s3_bucket.terraform_state_bucket.id
 
@@ -69,8 +69,13 @@ resource "aws_s3_bucket_lifecycle_configuration" "terraform_state_bucket_lifecyc
     noncurrent_version_expiration {
       noncurrent_days = 90
     }
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
+    }
   }
 }
+
 
 # S3 버킷 크로스 리전 복제 설정 (선택 사항)
 # 주의: 크로스 리전 복제는 추가 비용이 발생하며,

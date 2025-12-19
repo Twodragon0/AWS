@@ -13,6 +13,19 @@ resource "aws_vpc" "myproject_prod_vpc" {
   }
 }
 
+# Default Security Group - 모든 트래픽 차단 (Best Practice)
+resource "aws_default_security_group" "default" {
+  vpc_id = aws_vpc.myproject_prod_vpc.id
+
+  ingress = []
+  egress  = []
+
+  tags = {
+    Name      = "default-sg-restricted"
+    ManagedBy = "Terraform"
+  }
+}
+
 # Public Subnet
 resource "aws_subnet" "myproject_prod_public_subnet" {
   vpc_id            = aws_vpc.myproject_prod_vpc.id
