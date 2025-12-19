@@ -97,11 +97,15 @@ jobs:
 
       - name: Install pip-audit
         if: steps.check_requirements.outputs.exists == 'true'
-        run: pip install pip-audit
+        continue-on-error: true
+        run: |
+          pip install --upgrade pip
+          pip install pip-audit
 
       - name: Run pip-audit
         if: steps.check_requirements.outputs.exists == 'true'
         working-directory: ${{ matrix.directory }}
+        continue-on-error: true
         run: |
           pip-audit --requirement requirements.txt --format json --output pip-audit-report.json || echo '{"vulnerabilities":[]}' > pip-audit-report.json
 

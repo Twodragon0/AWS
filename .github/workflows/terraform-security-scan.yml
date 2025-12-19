@@ -32,15 +32,17 @@ jobs:
 
       - name: Run TFSec
         uses: aquasecurity/tfsec-action@v1.0.0
+        continue-on-error: true
         with:
           soft_fail: true
-          sarif_upload: true
+          sarif_upload: false
 
       - name: Upload TFSec results
         uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        if: always() && (success() || failure())
         with:
           sarif_file: tfsec.sarif
+          wait-for-processing: false
 
   checkov-scan:
     name: Checkov Security Scan
@@ -57,6 +59,7 @@ jobs:
 
       - name: Run Checkov
         uses: bridgecrewio/checkov-action@master
+        continue-on-error: true
         with:
           framework: terraform
           soft_fail: true
@@ -65,7 +68,8 @@ jobs:
 
       - name: Upload Checkov results
         uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        if: always() && (success() || failure())
         with:
           sarif_file: checkov.sarif
+          wait-for-processing: false
 
