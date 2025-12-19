@@ -60,7 +60,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always() && steps.check_dir.outputs.exists == 'true'
         with:
-          name: npm-audit-${{ matrix.directory }}
+          name: npm-audit-${{ matrix.directory | replace('/', '-') }}
           path: ${{ matrix.directory }}/npm-audit-report.json
           retention-days: 30
           if-no-files-found: ignore
