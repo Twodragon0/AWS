@@ -11,8 +11,9 @@ on:
 
 jobs:
   analyze:
-    name: Analyze
+    name: Analyze (${{ matrix.language }})
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
       actions: read
       contents: read
@@ -36,32 +37,60 @@ jobs:
         languages: ${{ matrix.language }}
 
     - name: Autobuild
+      if: matrix.language == 'python'
       uses: github/codeql-action/autobuild@v4
       continue-on-error: true
+      timeout-minutes: 20
 
-    - name: Manual build for JavaScript
+    - name: Setup Node.js for JavaScript
       if: matrix.language == 'javascript'
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Build JavaScript projects
+      if: matrix.language == 'javascript'
+      timeout-minutes: 15
+      continue-on-error: true
       run: |
+        echo "Building JavaScript projects..."
+        
         # Build Bedrock project if package.json exists
         if [ -f "Bedrock/package.json" ]; then
+          echo "Building Bedrock project..."
           cd Bedrock
-          npm ci || true
-          npm run build || true
+          npm ci --no-audit --no-fund || echo "npm ci failed, continuing..."
+          npm run build || echo "Build failed, continuing..."
           cd ..
         fi
-        # Build networking-costs-calculator projects if they exist
+        
+        # Build networking-costs-calculator backend if it exists
         if [ -f "networking-costs-calculator/backend/package.json" ]; then
+          echo "Building networking-costs-calculator backend..."
           cd networking-costs-calculator/backend
-          npm ci || true
-          npm run build || true
+          npm ci --no-audit --no-fund || echo "npm ci failed, continuing..."
+          npm run build || echo "Build failed, continuing..."
           cd ../../..
         fi
+        
+        # Build networking-costs-calculator frontend if it exists
         if [ -f "networking-costs-calculator/frontend/package.json" ]; then
+          echo "Building networking-costs-calculator frontend..."
           cd networking-costs-calculator/frontend
-          npm ci || true
-          npm run build || true
+          npm ci --no-audit --no-fund || echo "npm ci failed, continuing..."
+          npm run build || echo "Build failed, continuing..."
           cd ../../..
         fi
+        
+        echo "JavaScript build steps completed"
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v4
+      timeout-minutes: 30
+      with:
+        # Explicitly set upload to true
+        upload: true
+        # Add category to avoid conflicts
+        category: "/language:${{ matrix.language }}"
+      continue-on-error: false

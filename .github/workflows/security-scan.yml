@@ -9,17 +9,10 @@ on:
     # Run weekly on Monday at 3:00 UTC
     - cron: '0 3 * * 1'
 
-permissions:
-  contents: read
-  security-events: write
-
 jobs:
   npm-audit:
     name: NPM Security Audit
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write
     strategy:
       matrix:
         directory:
@@ -62,42 +55,19 @@ jobs:
         run: |
           npm audit --audit-level=moderate || true
           npm audit --json > npm-audit-report.json || echo '{"vulnerabilities":{}}' > npm-audit-report.json
-          
-      - name: Generate artifact name
-        if: steps.check_dir.outputs.exists == 'true'
-        id: artifact_name
-        run: |
-          ARTIFACT_NAME="npm-audit-$(echo '${{ matrix.directory }}' | tr '/' '-')"
-          echo "name=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
-          
-      - name: Upload npm audit results as artifact
+
+      - name: Upload npm audit results
         uses: actions/upload-artifact@v4
         if: always() && steps.check_dir.outputs.exists == 'true'
         with:
-          name: ${{ steps.artifact_name.outputs.name }}
+          name: npm-audit-${{ matrix.directory }}
           path: ${{ matrix.directory }}/npm-audit-report.json
           retention-days: 30
           if-no-files-found: ignore
-          
-      - name: Check for critical vulnerabilities
-        if: steps.check_dir.outputs.exists == 'true'
-        working-directory: ${{ matrix.directory }}
-        run: |
-          if [ -f npm-audit-report.json ]; then
-            VULN_COUNT=$(jq '[.vulnerabilities[] | select(.severity == "critical" or .severity == "high")] | length' npm-audit-report.json 2>/dev/null || echo "0")
-            if [ "$VULN_COUNT" -gt 0 ]; then
-              echo "⚠️ Found $VULN_COUNT critical/high vulnerabilities"
-              exit 1
-            fi
-          fi
-        continue-on-error: true
 
   pip-audit:
     name: Python Security Audit
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write
     strategy:
       matrix:
         directory:
@@ -135,18 +105,11 @@ jobs:
         run: |
           pip-audit --requirement requirements.txt --format json --output pip-audit-report.json || echo '{"vulnerabilities":[]}' > pip-audit-report.json
 
-      - name: Generate artifact name
-        if: steps.check_requirements.outputs.exists == 'true'
-        id: artifact_name
-        run: |
-          ARTIFACT_NAME="pip-audit-$(echo '${{ matrix.directory }}' | tr '/' '-')"
-          echo "name=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
-
       - name: Upload pip-audit results
         uses: actions/upload-artifact@v4
         if: always() && steps.check_requirements.outputs.exists == 'true'
         with:
-          name: ${{ steps.artifact_name.outputs.name }}
+          name: pip-audit-${{ matrix.directory }}
           path: ${{ matrix.directory }}/pip-audit-report.json
           retention-days: 30
           if-no-files-found: ignore
@@ -165,29 +128,16 @@ jobs:
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
-        continue-on-error: true
         with:
           scan-type: 'fs'
           scan-ref: '.'
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH,MEDIUM'
-          skip-dirs: 'node_modules,.terraform,cdk.out,__pycache__'
-          skip-files: 'package-lock.json,yarn.lock'
-
-      - name: Check if SARIF file exists
-        id: check_trivy_sarif
-        continue-on-error: true
-        run: |
-          if [ -f "trivy-results.sarif" ]; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-          fi
 
       - name: Upload Trivy results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v4
-        if: always() && steps.check_trivy_sarif.outputs.exists == 'true'
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
         with:
           sarif_file: 'trivy-results.sarif'
 

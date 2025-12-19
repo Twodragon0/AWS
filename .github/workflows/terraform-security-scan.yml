@@ -32,12 +32,15 @@ jobs:
 
       - name: Run TFSec
         uses: aquasecurity/tfsec-action@v1.0.0
-        continue-on-error: true
         with:
           soft_fail: true
           sarif_upload: true
-          working_directory: .
-          # Let TFSec handle SARIF upload automatically
+
+      - name: Upload TFSec results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: tfsec.sarif
 
   checkov-scan:
     name: Checkov Security Scan
@@ -54,28 +57,15 @@ jobs:
 
       - name: Run Checkov
         uses: bridgecrewio/checkov-action@master
-        continue-on-error: true
         with:
           framework: terraform
           soft_fail: true
           output_format: sarif
-          output_file_path: checkov-results.sarif
-          directory: .
-          skip_check: CKV_AWS_79,CKV_AWS_80  # Skip checks that require runtime values
-
-      - name: Check if SARIF file exists
-        id: check_sarif
-        continue-on-error: true
-        run: |
-          if [ -f "checkov-results.sarif" ]; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-          fi
+          output_file_path: checkov.sarif
 
       - name: Upload Checkov results
-        uses: github/codeql-action/upload-sarif@v4
-        if: always() && steps.check_sarif.outputs.exists == 'true'
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
         with:
-          sarif_file: checkov-results.sarif
+          sarif_file: checkov.sarif
 

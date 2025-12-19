@@ -1,23 +1,36 @@
+# ============================================
+# Terraform Files
+# ============================================
 # Local .terraform directories
-**/.terraform/*
+**/.terraform/
+.terraform/
 
-# .tfstate files
+# .tfstate files (may contain sensitive data)
 *.tfstate
 *.tfstate.*
+*.tfstate.backup
+terraform.tfstate
+terraform.tfstate.backup
 
 # Crash log files
 crash.log
 crash.*.log
+*crash.log
 
 # Provider files
 *.tfvars
 *.tfvars.json
+!*.tfvars.example
 
 # CLI configuration files
 .terraformrc
 terraform.rc
+.terraform.lock.hcl
 
-# Security and secrets
+# ============================================
+# Security and Secrets
+# ============================================
+# Certificate and key files
 *.pem
 *.key
 *.p12
@@ -25,78 +38,133 @@ terraform.rc
 *.crt
 *.cer
 *.jks
+*.keystore
+
+# Secrets directories and files
 secrets/
-.secrets
-.env
-.env.local
-.env.*.local
+.secrets/
 *.secret
 credentials.json
 aws-credentials
-*.tfvars
-!*.tfvars.example
+.aws/credentials
+.aws/config
 
-# Security scan reports
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+
+# ============================================
+# Security Scan Reports
+# ============================================
 *-audit-report.json
 npm-audit-report.json
 pip-audit-report.json
 trivy-results.sarif
 security-scan-results/
+.sarif/
 
-# IDE and editor files
+# ============================================
+# IDE and Editor Files
+# ============================================
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 .DS_Store
+Thumbs.db
 
+# ============================================
 # Logs
+# ============================================
 *.log
 logs/
+*.log.*
 
-# Node modules
+# ============================================
+# Node.js
+# ============================================
 node_modules/
 **/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
 
-# Package manager files
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
+# Package manager lock files (optional - uncomment if needed)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
 
+# ============================================
+# AWS CDK Build Artifacts
+# ============================================
 # CDK build artifacts (may contain secrets)
 **/cdk.out/
 cdk.out/
+*.template.json
 
-# Terraform state files (may contain sensitive data)
-*.tfstate
-*.tfstate.*
-terraform.tfstate.backup
-**/.terraform/
-.terraform/
-
-# Python cache files
+# ============================================
+# Python
+# ============================================
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# Distribution / packaging
 .Python
-*.egg-info/
-dist/
 build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
 *.egg
 
-# AWS credentials and config
-.aws/
-*.aws
-
-# IDE specific files
-*.iml
-.project
-.classpath
-.settings/
-
-# OS specific files
-Thumbs.db
+# ============================================
+# Temporary Files
+# ============================================
 *.tmp
 *.temp
+*.bak
+*.backup
+*.swp
+*~
+
+# ============================================
+# OS Specific
+# ============================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory

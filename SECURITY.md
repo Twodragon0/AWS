@@ -56,15 +56,11 @@ This repository follows security best practices:
 ## Security Features
 
 - ✅ Automated dependency updates (Dependabot)
-- ✅ Code scanning (CodeQL) with custom configuration
+- ✅ Code scanning (CodeQL)
 - ✅ Vulnerability scanning (npm audit, pip-audit, Trivy)
-- ✅ Secret scanning (TruffleHog, Gitleaks)
-- ✅ Terraform security scanning (TFSec, Checkov)
 - ✅ Dependency review on pull requests
 - ✅ Security headers in CloudFront configurations
 - ✅ IAM least privilege principles
-- ✅ Automated security event reporting to GitHub Security
-- ✅ Comprehensive .gitignore for sensitive files
 
 ## Acknowledgments
 
