@@ -42,7 +42,7 @@ output "eks_managed_node_group_iam_role_arn" {
 
 output "vpc_endpoints" {
   description = "VPC Endpoint IDs"
-  value       = concat(
+  value = concat(
     module.vpc_endpoints.eks_api_endpoint_ids,
     module.vpc_endpoints.ecr_api_endpoint_ids,
     module.vpc_endpoints.ecr_dkr_endpoint_ids

@@ -84,8 +84,8 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "cdn_bucket_encryp
 
 # S3 버킷 ACL 비활성화 (버킷 소유자만 접근 가능)
 resource "aws_s3_bucket_acl" "cdn_bucket_acl" {
-  bucket = aws_s3_bucket.cdn_bucket.id
-  acl    = "private"
+  bucket     = aws_s3_bucket.cdn_bucket.id
+  acl        = "private"
   depends_on = [aws_s3_bucket_ownership_controls.cdn_bucket_ownership]
 }
 
@@ -114,7 +114,7 @@ resource "aws_s3_bucket_acl" "cdn_bucket_acl" {
 # }
 
 resource "aws_s3_bucket_public_access_block" "cdn_bucket_pab" {
-  bucket = aws_s3_bucket.cdn_bucket.id
+  bucket                  = aws_s3_bucket.cdn_bucket.id
   block_public_acls       = true
   block_public_policy     = true
   ignore_public_acls      = true
@@ -124,7 +124,7 @@ resource "aws_s3_bucket_public_access_block" "cdn_bucket_pab" {
 resource "aws_s3_bucket_ownership_controls" "cdn_bucket_ownership" {
   bucket = aws_s3_bucket.cdn_bucket.id
   rule {
-    object_ownership = "BucketOwnerEnforced"  # ACL 비활성화를 위해 BucketOwnerEnforced 사용
+    object_ownership = "BucketOwnerEnforced" # ACL 비활성화를 위해 BucketOwnerEnforced 사용
   }
 }
 
@@ -165,69 +165,69 @@ resource "aws_cloudfront_distribution" "cdn_distribution" {
   }
 
   default_cache_behavior {
-    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
-    cached_methods   = ["GET", "HEAD"]
-    target_origin_id = "${var.project_name}-s3-origin"
+    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
+    cached_methods         = ["GET", "HEAD"]
+    target_origin_id       = "${var.project_name}-s3-origin"
     viewer_protocol_policy = "redirect-to-https"
-    
+
     # S3 최적화 캐시 정책
     cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6" # CachingOptimized
     # S3의 경우 Origin Request Policy 제거 (호환성 문제)
     response_headers_policy_id = aws_cloudfront_response_headers_policy.cors_policy.id
-    
-    min_ttl                = 0
-    default_ttl            = 3600
-    max_ttl                = 86400
-    compress               = true
+
+    min_ttl     = 0
+    default_ttl = 3600
+    max_ttl     = 86400
+    compress    = true
   }
 
   ordered_cache_behavior {
-    path_pattern     = "*.html"
-    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
-    cached_methods   = ["GET", "HEAD"]
-    target_origin_id = "${var.project_name}-s3-origin"
+    path_pattern           = "*.html"
+    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
+    cached_methods         = ["GET", "HEAD"]
+    target_origin_id       = "${var.project_name}-s3-origin"
     viewer_protocol_policy = "redirect-to-https"
-    
+
     # HTML 파일은 캐시 비활성화
-    cache_policy_id = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad" # CachingDisabled
+    cache_policy_id            = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad" # CachingDisabled
     response_headers_policy_id = aws_cloudfront_response_headers_policy.cors_policy.id
-    
-    min_ttl                = 0
-    default_ttl            = 0
-    max_ttl                = 0
-    compress               = true
+
+    min_ttl     = 0
+    default_ttl = 0
+    max_ttl     = 0
+    compress    = true
   }
 
   ordered_cache_behavior {
-    path_pattern     = "*.png"
-    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
-    cached_methods   = ["GET", "HEAD"]
-    target_origin_id = "${var.project_name}-s3-origin"
+    path_pattern           = "*.png"
+    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
+    cached_methods         = ["GET", "HEAD"]
+    target_origin_id       = "${var.project_name}-s3-origin"
     viewer_protocol_policy = "redirect-to-https"
-    
-    cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6" # CachingOptimized
+
+    cache_policy_id            = "658327ea-f89d-4fab-a63d-7e88639e58f6" # CachingOptimized
     response_headers_policy_id = aws_cloudfront_response_headers_policy.cors_policy.id
-    
-    min_ttl                = 0
-    default_ttl            = 3600
-    max_ttl                = 86400
-    compress               = true
+
+    min_ttl     = 0
+    default_ttl = 3600
+    max_ttl     = 86400
+    compress    = true
   }
 
   ordered_cache_behavior {
-    path_pattern     = "*.svg"
-    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
-    cached_methods   = ["GET", "HEAD"]
-    target_origin_id = "${var.project_name}-s3-origin"
+    path_pattern           = "*.svg"
+    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
+    cached_methods         = ["GET", "HEAD"]
+    target_origin_id       = "${var.project_name}-s3-origin"
     viewer_protocol_policy = "redirect-to-https"
-    
-    cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6" # CachingOptimized
+
+    cache_policy_id            = "658327ea-f89d-4fab-a63d-7e88639e58f6" # CachingOptimized
     response_headers_policy_id = aws_cloudfront_response_headers_policy.cors_policy.id
-    
-    min_ttl                = 0
-    default_ttl            = 3600
-    max_ttl                = 86400
-    compress               = true
+
+    min_ttl     = 0
+    default_ttl = 3600
+    max_ttl     = 86400
+    compress    = true
   }
 
   price_class = "PriceClass_200"
@@ -248,20 +248,20 @@ resource "aws_cloudfront_distribution" "cdn_distribution" {
 resource "aws_s3_bucket_policy" "cdn_bucket_policy" {
   bucket = aws_s3_bucket.cdn_bucket.id
   depends_on = [
-    aws_cloudfront_distribution.cdn_distribution, 
+    aws_cloudfront_distribution.cdn_distribution,
     aws_s3_bucket_public_access_block.cdn_bucket_pab
   ]
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Sid       = "AllowCloudFrontServicePrincipal"
-        Effect    = "Allow"
+        Sid    = "AllowCloudFrontServicePrincipal"
+        Effect = "Allow"
         Principal = {
           Service = "cloudfront.amazonaws.com"
         }
-        Action   = ["s3:GetObject", "s3:ListBucket"]
+        Action = ["s3:GetObject", "s3:ListBucket"]
         Resource = [
           "${aws_s3_bucket.cdn_bucket.arn}",
           "${aws_s3_bucket.cdn_bucket.arn}/*"
@@ -304,15 +304,15 @@ resource "aws_cloudfront_response_headers_policy" "cors_policy" {
     }
 
     access_control_max_age_sec = 600
-    origin_override = true
+    origin_override            = true
   }
 
   security_headers_config {
     strict_transport_security {
       access_control_max_age_sec = 31536000
-      include_subdomains = true
-      preload = true
-      override = true
+      include_subdomains         = true
+      preload                    = true
+      override                   = true
     }
 
     content_type_options {
@@ -321,12 +321,12 @@ resource "aws_cloudfront_response_headers_policy" "cors_policy" {
 
     frame_options {
       frame_option = "DENY"
-      override = true
+      override     = true
     }
 
     referrer_policy {
       referrer_policy = "strict-origin-when-cross-origin"
-      override = true
+      override        = true
     }
   }
 }
@@ -334,7 +334,7 @@ resource "aws_cloudfront_response_headers_policy" "cors_policy" {
 # SSL 인증서 요청
 resource "aws_acm_certificate" "ssl_certificate" {
   provider = aws.us_east_1
-  
+
   domain_name       = var.domain_name
   validation_method = "DNS"
 
@@ -350,13 +350,13 @@ resource "aws_acm_certificate" "ssl_certificate" {
 # SSL 인증서 검증을 위한 Route53 레코드 (Cloudflare 사용 시 수동 추가 필요)
 resource "aws_acm_certificate_validation" "ssl_certificate_validation" {
   provider = aws.us_east_1
-  
+
   certificate_arn = aws_acm_certificate.ssl_certificate.arn
-  
+
   timeouts {
     create = "10m"
   }
-  
+
   # Cloudflare 사용 시에는 수동으로 DNS 검증 레코드를 추가해야 함
   # 따라서 이 리소스는 무시하고 인증서가 ISSUED 상태가 되면 사용
   depends_on = [aws_acm_certificate.ssl_certificate]
@@ -364,16 +364,16 @@ resource "aws_acm_certificate_validation" "ssl_certificate_validation" {
 
 # 출력값
 output "cloudfront_domain" {
-  value = aws_cloudfront_distribution.cdn_distribution.domain_name
+  value       = aws_cloudfront_distribution.cdn_distribution.domain_name
   description = "CloudFront 배포 도메인 이름"
 }
 
 output "s3_bucket" {
-  value = aws_s3_bucket.cdn_bucket.bucket
+  value       = aws_s3_bucket.cdn_bucket.bucket
   description = "S3 버킷 이름"
 }
 
 output "cloudfront_distribution_id" {
-  value = aws_cloudfront_distribution.cdn_distribution.id
+  value       = aws_cloudfront_distribution.cdn_distribution.id
   description = "CloudFront 배포 ID"
 } 

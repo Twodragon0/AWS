@@ -145,7 +145,7 @@ resource "aws_eip" "nat_eip" {
 }
 
 resource "aws_eip" "myproject_prod_eip" {
-  domain = "vpc"  // vpc = true 대신 사용
+  domain = "vpc" // vpc = true 대신 사용
 }
 
 # NAT 게이트웨이 생성
@@ -200,7 +200,7 @@ resource "aws_security_group" "eks_cluster_sg" {
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # 필요에 따라 소스 범위 제한
+    cidr_blocks = ["0.0.0.0/0"] # 필요에 따라 소스 범위 제한
   }
 
   egress {
@@ -228,7 +228,7 @@ resource "aws_security_group" "vpc_endpoint_sg" {
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
-    cidr_blocks = ["10.0.0.0/16"]  # VPC 내부 트래픽 허용
+    cidr_blocks = ["10.0.0.0/16"] # VPC 내부 트래픽 허용
   }
 
   egress {
@@ -248,8 +248,8 @@ resource "aws_security_group" "vpc_endpoint_sg" {
 
 # VPC 엔드포인트 모듈 호출
 module "vpc_endpoints" {
-  source             = "./modules/vpc_endpoints"
-  vpc_id             = aws_vpc.main.id
+  source = "./modules/vpc_endpoints"
+  vpc_id = aws_vpc.main.id
   private_subnet_ids = {
     a = aws_subnet.private_a.id
     b = aws_subnet.private_b.id
@@ -267,21 +267,21 @@ module "eks" {
   cluster_name    = var.cluster_name
   cluster_version = var.cluster_version
   vpc_id          = aws_vpc.main.id
-  subnet_ids      = [
+  subnet_ids = [
     aws_subnet.private_a.id,
     aws_subnet.private_b.id,
   ]
 
   tags = var.tags
 
-  cluster_endpoint_public_access  = false  # 프라이빗 접근으로 변경
-  cluster_endpoint_private_access = true   # 프라이빗 접근 활성화
-  enable_irsa                     = true   # IRSA 활성화
+  cluster_endpoint_public_access  = false # 프라이빗 접근으로 변경
+  cluster_endpoint_private_access = true  # 프라이빗 접근 활성화
+  enable_irsa                     = true  # IRSA 활성화
 
   cluster_addons = {
     vpc-cni = {
-      before_compute       = true
-      most_recent          = true
+      before_compute = true
+      most_recent    = true
       configuration_values = jsonencode({
         env = {
           ENABLE_POD_ENI                    = "true"
@@ -304,15 +304,15 @@ module "eks" {
 
   eks_managed_node_groups = {
     default = {
-      instance_types             = ["t3.micro"]
-      min_size                   = 1
-      max_size                   = 1
-      desired_size               = 1
-      force_update_version       = true
-      release_version            = var.ami_release_version
-      use_name_prefix            = false
-      iam_role_name              = "${var.cluster_name}-ng-default"
-      iam_role_use_name_prefix   = false
+      instance_types           = ["t3.micro"]
+      min_size                 = 1
+      max_size                 = 1
+      desired_size             = 1
+      force_update_version     = true
+      release_version          = var.ami_release_version
+      use_name_prefix          = false
+      iam_role_name            = "${var.cluster_name}-ng-default"
+      iam_role_use_name_prefix = false
 
       update_config = {
         max_unavailable_percentage = 50
@@ -341,7 +341,7 @@ resource "aws_sns_topic" "monitor_topic" {
 resource "aws_sns_topic_subscription" "email_subscription" {
   topic_arn = aws_sns_topic.monitor_topic.arn
   protocol  = "email"
-  endpoint  = "your-email@example.com"  # 실제 이메일로 교체
+  endpoint  = "your-email@example.com" # 실제 이메일로 교체
 }
 
 # IAM Role for SSM Access 생성
@@ -352,7 +352,7 @@ resource "aws_iam_role" "ssm_role" {
     Version = "2012-10-17",
     Statement = [
       {
-        Effect    = "Allow",
+        Effect = "Allow",
         Principal = {
           Service = "ec2.amazonaws.com"
         },
@@ -450,9 +450,9 @@ resource "aws_iam_role_policy" "eks_irsa_policy" {
 
 # 프라이빗 서브넷에 EC2 인스턴스 생성 (예시)
 resource "aws_instance" "private_instance" {
-  ami                         = "ami-01123b84e2a4fba05"  # ap-northeast-2의 Amazon Linux 2 AMI로 확인 필요
-  instance_type               = "t3.micro"                # 최소 비용 인스턴스 유형
-  subnet_id                   = aws_subnet.private_a.id  # 두 개의 프라이빗 서브넷 중 하나 사용
+  ami                         = "ami-01123b84e2a4fba05" # ap-northeast-2의 Amazon Linux 2 AMI로 확인 필요
+  instance_type               = "t3.micro"              # 최소 비용 인스턴스 유형
+  subnet_id                   = aws_subnet.private_a.id # 두 개의 프라이빗 서브넷 중 하나 사용
   associate_public_ip_address = false
   security_groups             = [aws_security_group.vpc_endpoint_sg.id]
   iam_instance_profile        = aws_iam_instance_profile.ssm_profile.name

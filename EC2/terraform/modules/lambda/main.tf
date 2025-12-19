@@ -5,7 +5,7 @@ resource "aws_iam_role" "lambda_role" {
     Version = "2012-10-17",
     Statement = [
       {
-        Effect    = "Allow",
+        Effect = "Allow",
         Principal = {
           Service = "lambda.amazonaws.com"
         },
@@ -72,7 +72,7 @@ resource "aws_lambda_function" "aws_monitor_lambda" {
 # CloudWatch Event Rule (스케줄 트리거)
 resource "aws_cloudwatch_event_rule" "lambda_schedule" {
   name                = "aws_monitor_schedule"
-  schedule_expression = "rate(5 minutes)"  # 모니터링 주기 설정
+  schedule_expression = "rate(5 minutes)" # 모니터링 주기 설정
 }
 
 # CloudWatch Event Target

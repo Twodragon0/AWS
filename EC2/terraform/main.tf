@@ -7,8 +7,8 @@ resource "aws_vpc" "myproject_prod_vpc" {
   cidr_block = "10.0.0.0/16"
 
   tags = {
-    Name                = "myproject-prod-vpc"
-    ManagedBy           = "Terraform"
+    Name               = "myproject-prod-vpc"
+    ManagedBy          = "Terraform"
     ModificationLocked = "true"
   }
 }
@@ -33,8 +33,8 @@ resource "aws_subnet" "myproject_prod_public_subnet" {
   availability_zone = "ap-northeast-2a"
 
   tags = {
-    Name                = "myproject-prod-public-subnet"
-    ManagedBy           = "Terraform"
+    Name               = "myproject-prod-public-subnet"
+    ManagedBy          = "Terraform"
     ModificationLocked = "true"
   }
 }
@@ -46,8 +46,8 @@ resource "aws_subnet" "myproject_prod_private_subnet" {
   availability_zone = "ap-northeast-2a"
 
   tags = {
-    Name                = "myproject-prod-private-subnet"
-    ManagedBy           = "Terraform"
+    Name               = "myproject-prod-private-subnet"
+    ManagedBy          = "Terraform"
     ModificationLocked = "true"
   }
 }
@@ -102,7 +102,7 @@ resource "aws_iam_role" "myproject_prod_ssm_role" {
     Version = "2012-10-17",
     Statement = [
       {
-        Effect    = "Allow",
+        Effect = "Allow",
         Principal = {
           Service = "ec2.amazonaws.com"
         },
@@ -112,7 +112,7 @@ resource "aws_iam_role" "myproject_prod_ssm_role" {
   })
 
   tags = {
-    ManagedBy           = "Terraform"
+    ManagedBy          = "Terraform"
     ModificationLocked = "true"
   }
 }
@@ -129,7 +129,7 @@ resource "aws_iam_instance_profile" "myproject_prod_ssm_profile" {
   role = aws_iam_role.myproject_prod_ssm_role.name
 
   tags = {
-    ManagedBy           = "Terraform"
+    ManagedBy          = "Terraform"
     ModificationLocked = "true"
   }
 }
@@ -145,7 +145,7 @@ resource "aws_security_group" "myproject_prod_vpc_endpoint_sg" {
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
-    cidr_blocks = ["10.0.0.0/16"]  # VPC 내 트래픽만 허용
+    cidr_blocks = ["10.0.0.0/16"] # VPC 내 트래픽만 허용
   }
 
   egress {
@@ -156,8 +156,8 @@ resource "aws_security_group" "myproject_prod_vpc_endpoint_sg" {
   }
 
   tags = {
-    Name                = "myproject-prod-vpc-endpoint-sg"
-    ManagedBy           = "Terraform"
+    Name               = "myproject-prod-vpc-endpoint-sg"
+    ManagedBy          = "Terraform"
     ModificationLocked = "true"
   }
 }
@@ -173,7 +173,7 @@ resource "aws_security_group" "myproject_prod_ec2_sg" {
     from_port       = 443
     to_port         = 443
     protocol        = "tcp"
-    security_groups = [aws_security_group.myproject_prod_vpc_endpoint_sg.id]  # VPC 엔드포인트로부터의 트래픽만 허용
+    security_groups = [aws_security_group.myproject_prod_vpc_endpoint_sg.id] # VPC 엔드포인트로부터의 트래픽만 허용
   }
 
   egress {
@@ -184,15 +184,15 @@ resource "aws_security_group" "myproject_prod_ec2_sg" {
   }
 
   tags = {
-    Name                = "myproject-prod-ec2-sg"
-    ManagedBy           = "Terraform"
+    Name               = "myproject-prod-ec2-sg"
+    ManagedBy          = "Terraform"
     ModificationLocked = "true"
   }
 }
 
 # EC2 Instance in Private Subnet
 resource "aws_instance" "myproject_prod_private_instance" {
-  ami                         = "ami-01123b84e2a4fba05"  # ap-northeast-2의 Amazon Linux 2 AMI
+  ami                         = "ami-01123b84e2a4fba05" # ap-northeast-2의 Amazon Linux 2 AMI
   instance_type               = "t2.micro"
   subnet_id                   = aws_subnet.myproject_prod_private_subnet.id
   associate_public_ip_address = false
@@ -208,11 +208,11 @@ resource "aws_instance" "myproject_prod_private_instance" {
   EOF
 
   tags = {
-    Name                = "myproject-prod-private-instance"
-    ManagedBy           = "Terraform"
+    Name               = "myproject-prod-private-instance"
+    ManagedBy          = "Terraform"
     ModificationLocked = "true"
-    Usage               = "prod-name"        # Python 스크립트에서 필터링할 'Usage' 태그 추가
-    HostName            = "prod-hostname"    # 필요 시 추가
+    Usage              = "prod-name"     # Python 스크립트에서 필터링할 'Usage' 태그 추가
+    HostName           = "prod-hostname" # 필요 시 추가
   }
   metadata_options {
     http_tokens = "required"
@@ -233,7 +233,7 @@ resource "aws_sns_topic" "aws_monitor_topic" {
 resource "aws_sns_topic_subscription" "email_subscription" {
   topic_arn = aws_sns_topic.aws_monitor_topic.arn
   protocol  = "email"
-  endpoint  = "your-email@example.com"  # 실제 이메일 주소로 변경
+  endpoint  = "your-email@example.com" # 실제 이메일 주소로 변경
 }
 
 # VPC Endpoints 모듈 호출
@@ -250,5 +250,5 @@ module "lambda" {
   ec2_sg_id          = aws_security_group.myproject_prod_ec2_sg.id
   vpc_endpoint_sg_id = aws_security_group.myproject_prod_vpc_endpoint_sg.id
   sns_topic_arn      = aws_sns_topic.aws_monitor_topic.arn
-  s3_bucket          = "your-s3-bucket"  # 엑셀 파일 저장 S3 버킷 이름
+  s3_bucket          = "your-s3-bucket" # 엑셀 파일 저장 S3 버킷 이름
 }

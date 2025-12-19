@@ -13,7 +13,7 @@
 # =============================================================================
 
 resource "aws_s3_bucket" "terraform_state_bucket" {
-  bucket = "aws-sso-tfstate"  # 고유한 S3 버킷 이름이어야 합니다.
+  bucket = "aws-sso-tfstate" # 고유한 S3 버킷 이름이어야 합니다.
 
   # 버킷이 비어있지 않아도 삭제 가능하도록 설정
   # 주의: 이 설정은 버킷 내 모든 객체를 삭제할 수 있게 합니다
@@ -55,7 +55,7 @@ resource "aws_s3_bucket_public_access_block" "terraform_state_bucket_pab" {
   block_public_acls       = true
   block_public_policy     = true
   ignore_public_acls      = true
-  restrict_public_buckets  = true
+  restrict_public_buckets = true
 }
 
 # S3 버킷 수명 주기 정책 (오래된 버전 정리)
@@ -124,9 +124,9 @@ resource "aws_dynamodb_table" "terraform_state_lock" {
 
   tags = {
     Name        = "Terraform State Lock"
-    ManagedBy    = "Terraform"
-    Environment  = "Production"
-    Purpose      = "Terraform State Locking"
+    ManagedBy   = "Terraform"
+    Environment = "Production"
+    Purpose     = "Terraform State Locking"
   }
 }
 
