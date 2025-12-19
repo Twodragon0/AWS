@@ -47,7 +47,8 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '20'
-        cache: 'npm'
+        # Cache is optional - will be used if package-lock.json exists in project directories
+        cache: ''
 
     - name: Build JavaScript projects
       if: matrix.language == 'javascript'
