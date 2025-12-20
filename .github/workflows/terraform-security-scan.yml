@@ -34,11 +34,13 @@ jobs:
         uses: aquasecurity/tfsec-action@v1.0.0
         continue-on-error: true
         id: tfsec
+        timeout-minutes: 15
         with:
           soft_fail: true
           sarif_upload: false
           output_format: sarif
           output_file_path: tfsec.sarif
+          working_directory: .
 
       - name: Check if TFSec SARIF file exists
         id: check_tfsec_file

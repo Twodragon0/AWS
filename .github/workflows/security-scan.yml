@@ -127,8 +127,15 @@ jobs:
         if: steps.check_requirements.outputs.exists == 'true'
         working-directory: ${{ matrix.directory }}
         continue-on-error: true
+        timeout-minutes: 10
         run: |
-          pip-audit --requirement requirements.txt --format json --output pip-audit-report.json || echo '{"vulnerabilities":[]}' > pip-audit-report.json
+          # Create output directory if it doesn't exist
+          mkdir -p $(dirname pip-audit-report.json) || true
+          # Run pip-audit with timeout and error handling
+          pip-audit --requirement requirements.txt --format json --output pip-audit-report.json 2>&1 || {
+            echo '{"vulnerabilities":[]}' > pip-audit-report.json
+            echo "pip-audit failed, created empty report"
+          }
 
       - name: Generate artifact name
         if: always() && steps.check_requirements.outputs.exists == 'true'
