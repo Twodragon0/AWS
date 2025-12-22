@@ -31,7 +31,7 @@ jobs:
           submodules: false
 
       - name: Run TFSec
-        uses: aquasecurity/tfsec-action@v1.0.0
+        uses: aquasecurity/tfsec-action@v1.0.3
         continue-on-error: true
         id: tfsec
         timeout-minutes: 15
