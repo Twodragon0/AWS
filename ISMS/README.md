@@ -8,6 +8,181 @@
 
 ISMS-P 인증을 통해 조직은 정보자산의 보안성을 강화하고, 개인정보의 안전한 처리를 보장함으로써 각종 법적, 규제적 요구사항을 준수하게 됩니다. 이 가이드는 ISMS-P 인증을 위한 체계 구축부터 운영 및 유지관리 방안을 다룹니다.
 
+## 🏗️ ISMS-P 아키텍처
+
+### ISMS-P 관리 체계 구조
+
+```mermaid
+graph TB
+    subgraph "정보보호 관리체계"
+        Policy[정보보호 정책]
+        Procedure[절차 및 지침]
+        Standard[표준 및 가이드라인]
+    end
+    
+    subgraph "정보자산 관리"
+        AssetInventory[자산 목록<br/>EC2, S3, RDS 등]
+        AssetClassification[자산 분류<br/>중요도 평가]
+        AssetOwnership[자산 소유권<br/>책임자 지정]
+    end
+    
+    subgraph "취약점 관리"
+        VulnerabilityScan[취약점 스캔<br/>정기 점검]
+        PatchManagement[패치 관리<br/>보안 업데이트]
+        RiskAssessment[위험 평가<br/>리스크 분석]
+    end
+    
+    subgraph "접근 제어"
+        IAM[IAM 정책<br/>최소 권한]
+        MFA[MFA 인증<br/>다중 인증]
+        NetworkACL[네트워크 ACL<br/>접근 제어]
+    end
+    
+    subgraph "모니터링 및 감사"
+        CloudTrail[CloudTrail<br/>API 로깅]
+        Config[AWS Config<br/>규칙 준수]
+        GuardDuty[GuardDuty<br/>위협 탐지]
+        LogAnalysis[로그 분석<br/>이상 탐지]
+    end
+    
+    subgraph "사고 대응"
+        IncidentResponse[사고 대응 계획]
+        Forensics[포렌식 분석]
+        Recovery[복구 절차]
+    end
+    
+    subgraph "컴플라이언스"
+        LegalReview[법적 준수 검토]
+        Audit[내부/외부 감사]
+        Certification[ISMS-P 인증]
+    end
+    
+    Policy --> AssetInventory
+    Procedure --> VulnerabilityScan
+    Standard --> IAM
+    
+    AssetInventory --> AssetClassification
+    AssetClassification --> AssetOwnership
+    
+    VulnerabilityScan --> PatchManagement
+    PatchManagement --> RiskAssessment
+    
+    IAM --> MFA
+    MFA --> NetworkACL
+    
+    CloudTrail --> LogAnalysis
+    Config --> LogAnalysis
+    GuardDuty --> LogAnalysis
+    LogAnalysis --> IncidentResponse
+    
+    IncidentResponse --> Forensics
+    Forensics --> Recovery
+    
+    AssetInventory --> LegalReview
+    RiskAssessment --> Audit
+    Audit --> Certification
+    
+    style Policy fill:#e1f5ff
+    style AssetInventory fill:#fff4e1
+    style LogAnalysis fill:#e8f5e9
+    style Certification fill:#f3e5f5
+```
+
+### ISMS-P 구축 프로세스
+
+```mermaid
+sequenceDiagram
+    participant Org as 조직
+    participant Team as ISMS 팀
+    participant AWS as AWS 인프라
+    participant Audit as 감사원
+    participant Cert as 인증기관
+    
+    Org->>Team: ISMS-P 구축 시작
+    Team->>Team: 자산 식별 및 목록화
+    Team->>AWS: AWS 리소스 조사
+    AWS-->>Team: 자산 목록 반환
+    
+    Team->>Team: 취약점 스캔
+    Team->>Team: 위험 평가
+    Team->>Team: 보안 정책 수립
+    
+    Team->>AWS: 보안 통제 구현
+    AWS-->>Team: 구현 완료
+    
+    Team->>Team: 내부 감사
+    Team->>Audit: 외부 감사 요청
+    Audit->>AWS: 인프라 검토
+    Audit->>Team: 감사 결과 보고
+    
+    Team->>Team: 개선 조치
+    Team->>Cert: 인증 신청
+    Cert->>AWS: 인증 심사
+    Cert-->>Org: ISMS-P 인증 발급
+```
+
+### 정보 흐름 및 보안 통제
+
+```mermaid
+graph LR
+    subgraph "데이터 수집"
+        User[사용자]
+        App[애플리케이션]
+        API[API Gateway]
+    end
+    
+    subgraph "데이터 처리"
+        Lambda[Lambda Function]
+        ECS[ECS Container]
+        EC2[EC2 Instance]
+    end
+    
+    subgraph "데이터 저장"
+        S3[S3 Bucket<br/>암호화]
+        RDS[RDS Database<br/>암호화]
+        DynamoDB[DynamoDB<br/>암호화]
+    end
+    
+    subgraph "보안 통제"
+        Encryption[암호화<br/>KMS]
+        AccessControl[접근 제어<br/>IAM]
+        Monitoring[모니터링<br/>CloudTrail]
+        Backup[백업<br/>자동화]
+    end
+    
+    User --> App
+    App --> API
+    API --> Lambda
+    API --> ECS
+    API --> EC2
+    
+    Lambda --> S3
+    Lambda --> RDS
+    ECS --> DynamoDB
+    EC2 --> RDS
+    
+    S3 --> Encryption
+    RDS --> Encryption
+    DynamoDB --> Encryption
+    
+    Lambda --> AccessControl
+    ECS --> AccessControl
+    EC2 --> AccessControl
+    
+    Lambda --> Monitoring
+    ECS --> Monitoring
+    EC2 --> Monitoring
+    
+    S3 --> Backup
+    RDS --> Backup
+    DynamoDB --> Backup
+    
+    style Encryption fill:#e1f5ff
+    style AccessControl fill:#fff4e1
+    style Monitoring fill:#e8f5e9
+    style Backup fill:#f3e5f5
+```
+
 ## ISMS-P 인증 신청 유형
 
 ### 자율신청자

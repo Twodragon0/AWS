@@ -434,6 +434,148 @@ curl -X POST https://your-api-gateway-url/slack/events \
   }'
 ```
 
+## 🛡️ DevSecOps 보안 강화
+
+이 프로젝트는 DevSecOps 모범 사례를 적용하여 보안성을 강화했습니다.
+
+### 1. 암호화 및 키 관리
+
+- **KMS 암호화**: 모든 민감한 데이터는 KMS 키로 암호화
+  - S3 버킷: KMS 암호화 활성화
+  - DynamoDB: 고객 관리형 KMS 키 사용
+  - Lambda 환경 변수: KMS 암호화
+- **키 로테이션**: KMS 키 자동 로테이션 활성화
+- **Secrets Manager**: Slack 토큰 및 시크릿은 Secrets Manager에 저장
+
+### 2. 접근 제어 및 IAM
+
+- **최소 권한 원칙**: 모든 IAM 역할은 필요한 권한만 부여
+- **리소스 기반 정책**: 특정 리소스에만 접근 가능하도록 제한
+- **조건부 정책**: 계정 ID 기반 조건 추가
+
+### 3. 모니터링 및 감사
+
+- **CloudTrail**: 모든 API 호출 로깅
+- **Guardrails**: Bedrock Guardrails를 통한 콘텐츠 필터링
+  - 부적절한 콘텐츠 차단 (SEXUAL, VIOLENCE, HATE, INSULTS, MISCONDUCT)
+  - 프롬프트 공격 방지 (PROMPT_ATTACK)
+  - PII 데이터 익명화/차단
+- **입력 검증**: Lambda 함수에서 사용자 입력 검증 및 위험 패턴 감지
+
+### 4. 네트워크 보안
+
+- **VPC 엔드포인트**: 프라이빗 연결을 통한 데이터 전송 (향후 구현 가능)
+- **SSL/TLS**: 모든 통신은 HTTPS 강제
+- **보안 그룹**: 최소 권한 원칙 적용
+
+### 5. 데이터 보안
+
+- **S3 버킷**: 공개 접근 차단, 버전 관리 활성화
+- **OpenSearch Serverless**: 암호화 활성화
+- **DynamoDB**: 암호화 및 TTL 설정
+
+## 💰 FinOps 비용 최적화
+
+이 프로젝트는 FinOps 모범 사례를 적용하여 비용을 최적화했습니다.
+
+### 1. 리소스 태깅
+
+모든 리소스에 다음 태그가 적용되어 비용 추적이 가능합니다:
+- `Project`: Bedrock-SlackBot
+- `Environment`: Production
+- `CostCenter`: DevSecOps
+- `Owner`: DevSecOps-Team
+- `Purpose`: AIOps-Chatbot
+
+### 2. Lambda 비용 최적화
+
+- **메모리 최적화**: 512MB → 256MB로 조정 (필요시 조정 가능)
+- **타임아웃 최적화**: 10분 → 5분으로 조정
+- **로깅 최적화**: DEBUG → INFO 레벨로 변경하여 로그 비용 절감
+- **프로비저닝된 동시성**: 필요시 설정 가능
+
+### 3. S3 비용 최적화
+
+- **Lifecycle 정책**:
+  - 30일 후: Standard-IA로 전환
+  - 90일 후: Glacier로 전환
+  - 365일 후: 이전 버전 자동 삭제
+- **Intelligent-Tiering**: 접근 패턴에 따른 자동 스토리지 클래스 이동
+
+### 4. 모니터링 및 알람
+
+- **CloudWatch 비용 알람**: API Gateway 요청 수 기반 알람
+- **Budget 설정**: 월 예산 알람 (80%, 100% 임계값)
+- **비용 이상 탐지**: Cost Anomaly Detection (선택적)
+
+### 5. Bedrock 모델 비용 최적화
+
+- **모델 선택**: 비용 효율적인 모델 선택 (Claude 3.5 Sonnet)
+- **토큰 제한**: max_tokens 설정으로 비용 제어
+- **사용량 모니터링**: CloudWatch 메트릭을 통한 모델 사용량 추적
+
+### 6. 비용 모니터링 대시보드
+
+CloudWatch 대시보드에서 다음 메트릭을 모니터링할 수 있습니다:
+- Lambda Invocations
+- Lambda Errors
+- Lambda Duration
+- Lambda Throttles
+- Bedrock Invocations
+- Bedrock Duration
+- API Gateway Requests
+
+## 🚀 DevOps 운영 최적화
+
+이 프로젝트는 DevOps 모범 사례를 적용하여 운영 효율성을 향상시켰습니다.
+
+### 1. 모니터링 및 알람
+
+- **CloudWatch 대시보드**: 실시간 메트릭 모니터링
+- **알람 설정**:
+  - Lambda 에러 알람 (임계값: 5회)
+  - Lambda 지속 시간 알람 (임계값: 5분)
+  - Lambda 쓰로틀 알람
+  - API Gateway 비용 알람
+- **SNS 알림**: 알람 발생 시 SNS 토픽을 통한 알림
+
+### 2. 로깅
+
+- **CloudWatch Logs**: 모든 Lambda 함수 로그 수집
+- **API Gateway 로깅**: 액세스 로그 및 실행 로그 활성화
+- **로그 보관**: 1주일 ~ 1개월 (리소스별 상이)
+- **로그 최적화**: 불필요한 로그 최소화로 비용 절감
+
+### 3. 메트릭 수집
+
+Lambda 함수에서 다음 커스텀 메트릭을 발행합니다:
+- `CommandRequests`: 슬래시 명령어 요청 수
+- `CommandSuccess`: 성공한 요청 수
+- `CommandErrors`: 에러 발생 수
+- `CommandDuration`: 요청 처리 시간
+- `BedrockInvocations`: Bedrock API 호출 수
+- `BedrockDuration`: Bedrock 응답 시간
+- `BedrockErrors`: Bedrock 에러 수
+- `InvalidInput`: 유효하지 않은 입력 수
+
+### 4. 자동화
+
+- **CDK 배포**: Infrastructure as Code를 통한 자동 배포
+- **CI/CD**: GitHub Actions를 통한 자동 테스트 및 배포 (선택적)
+- **리소스 태깅**: 자동 태깅으로 비용 추적 및 관리
+
+### 5. 에러 처리 및 복원력
+
+- **중복 이벤트 방지**: DynamoDB를 통한 이벤트 추적
+- **에러 핸들링**: 모든 예외 상황에 대한 적절한 처리
+- **타임아웃 관리**: 적절한 타임아웃 설정으로 무한 대기 방지
+
+### 6. 성능 최적화
+
+- **비동기 처리**: Slack Bolt의 lazy loading 활용
+- **캐싱**: 필요시 응답 캐싱으로 비용 절감
+- **연결 풀링**: Boto3 클라이언트 재사용
+
 ## 🔒 보안 고려사항
 
 ### 1. Secrets 관리
@@ -555,3 +697,51 @@ graph LR
 **구현 가이드**: [Amazon Bedrock Knowledge Base Slack Bot](https://twodragon.tistory.com/673)  
 **GitHub 저장소**: [amazon-bedrock-knowledgebase-slackbot](https://github.com/Twodragon0/amazon-bedrock-knowledgebase-slackbot)  
 **마지막 업데이트**: 2025-01-27
+
+---
+
+## 📊 DevSecOps/FinOps/DevOps 체크리스트
+
+### DevSecOps 보안 체크리스트
+
+- [x] KMS 암호화 활성화 (S3, DynamoDB, Lambda 환경 변수)
+- [x] Secrets Manager를 통한 시크릿 관리
+- [x] IAM 최소 권한 원칙 적용
+- [x] CloudTrail 로깅 활성화
+- [x] Bedrock Guardrails 설정
+- [x] 입력 검증 및 위험 패턴 감지
+- [x] SSL/TLS 강제
+- [x] S3 버킷 공개 접근 차단
+
+### FinOps 비용 최적화 체크리스트
+
+- [x] 리소스 태깅 (비용 추적)
+- [x] Lambda 메모리 및 타임아웃 최적화
+- [x] S3 Lifecycle 정책 설정
+- [x] CloudWatch 비용 알람 설정
+- [x] Budget 설정 (선택적)
+- [x] 로깅 레벨 최적화 (비용 절감)
+- [x] 모델 사용량 모니터링
+
+### DevOps 운영 체크리스트
+
+- [x] CloudWatch 대시보드 생성
+- [x] 알람 설정 (에러, 지속 시간, 쓰로틀)
+- [x] 커스텀 메트릭 발행
+- [x] 로그 수집 및 보관 정책
+- [x] 중복 이벤트 방지
+- [x] 에러 핸들링 및 복원력
+- [x] CDK를 통한 Infrastructure as Code
+
+---
+
+## 🔧 추가 최적화 옵션
+
+### 향후 개선 사항
+
+1. **VPC 엔드포인트**: 프라이빗 연결을 통한 데이터 전송 (비용 및 보안 향상)
+2. **WAF**: API Gateway에 WAF 규칙 추가
+3. **프로비저닝된 동시성**: Lambda 프로비저닝된 동시성 설정
+4. **캐싱**: API Gateway 응답 캐싱
+5. **비용 이상 탐지**: Cost Anomaly Detection 활성화
+6. **자동 스케일링**: 필요시 Auto Scaling 설정

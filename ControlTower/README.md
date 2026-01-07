@@ -2,6 +2,212 @@
 
 This document provides a guide for integrating **Okta** with **AWS IAM Identity Center (AWS SSO)** and implementing **AWS Control Tower** to manage AWS accounts and permissions more efficiently, while ensuring compliance with standards such as **ISMS-P** and **Electronic Financial Supervisory Regulations**.
 
+## 📋 목차
+
+- [개요](#overview)
+- [Control Tower 아키텍처](#control-tower-아키텍처)
+- [주요 기능](#주요-기능)
+- [구현 단계](#implementation-steps)
+- [컴플라이언스 고려사항](#compliance-considerations)
+- [보안 및 비용 관리](#security-and-cost-management)
+
+---
+
+## 🏗️ Control Tower 아키텍처
+
+### 전체 멀티 계정 아키텍처
+
+```mermaid
+graph TB
+    subgraph "Identity Provider"
+        Okta[Okta<br/>Identity Provider]
+        Users[사용자/그룹]
+    end
+    
+    subgraph "AWS Organizations"
+        OrgRoot[Organization Root]
+        ManagementAccount[Management Account<br/>Control Tower]
+    end
+    
+    subgraph "AWS Control Tower"
+        LandingZone[Landing Zone]
+        AccountFactory[Account Factory]
+        Guardrails[Guardrails<br/>보안 정책]
+    end
+    
+    subgraph "AWS IAM Identity Center"
+        IdentityCenter[IAM Identity Center<br/>AWS SSO]
+        PermissionSets[Permission Sets<br/>권한 세트]
+        Assignments[Account Assignments]
+    end
+    
+    subgraph "멀티 계정 구조"
+        LogArchive[Log Archive Account<br/>중앙 로깅]
+        Audit[Audit Account<br/>감사]
+        Security[Security Account<br/>보안]
+        Dev[Dev Account<br/>개발]
+        Prod[Prod Account<br/>프로덕션]
+        SharedServices[Shared Services<br/>공유 서비스]
+    end
+    
+    subgraph "중앙 관리 서비스"
+        CloudTrail[CloudTrail<br/>API 로깅]
+        Config[AWS Config<br/>규칙 준수]
+        GuardDuty[GuardDuty<br/>위협 탐지]
+        SCP[Service Control Policies<br/>SCP]
+    end
+    
+    Users --> Okta
+    Okta --> IdentityCenter
+    IdentityCenter --> PermissionSets
+    PermissionSets --> Assignments
+    Assignments --> Dev
+    Assignments --> Prod
+    Assignments --> Security
+    
+    ManagementAccount --> LandingZone
+    LandingZone --> AccountFactory
+    AccountFactory --> Dev
+    AccountFactory --> Prod
+    AccountFactory --> SharedServices
+    
+    LandingZone --> Guardrails
+    Guardrails --> SCP
+    SCP --> Dev
+    SCP --> Prod
+    SCP --> Security
+    
+    Dev --> CloudTrail
+    Prod --> CloudTrail
+    Security --> CloudTrail
+    CloudTrail --> LogArchive
+    
+    Dev --> Config
+    Prod --> Config
+    Config --> Audit
+    
+    Dev --> GuardDuty
+    Prod --> GuardDuty
+    GuardDuty --> Security
+    
+    style ManagementAccount fill:#e1f5ff
+    style IdentityCenter fill:#fff4e1
+    style LogArchive fill:#e8f5e9
+    style Guardrails fill:#f3e5f5
+```
+
+### 계정 생성 및 권한 할당 흐름
+
+```mermaid
+sequenceDiagram
+    participant Admin as 관리자
+    participant CT as Control Tower
+    participant AF as Account Factory
+    participant Org as Organizations
+    participant SSO as IAM Identity Center
+    participant Account as 새 계정
+    
+    Admin->>CT: Account Factory 접근
+    Admin->>AF: 새 계정 생성 요청
+    AF->>Org: 계정 생성
+    Org->>Account: 계정 프로비저닝
+    Account-->>AF: 계정 ID 반환
+    
+    AF->>Account: Guardrails 적용
+    AF->>Account: SCP 적용
+    AF->>Account: CloudTrail 설정
+    AF->>Account: Config 설정
+    
+    Admin->>SSO: Permission Set 생성
+    SSO->>SSO: 권한 세트 정의
+    
+    Admin->>SSO: 계정 할당
+    SSO->>Account: IAM Role 생성
+    SSO->>SSO: 사용자/그룹 연결
+    
+    Account-->>Admin: 계정 준비 완료
+```
+
+### 로깅 및 감사 흐름
+
+```mermaid
+graph LR
+    subgraph "멀티 계정"
+        Account1[Account 1]
+        Account2[Account 2]
+        Account3[Account 3]
+    end
+    
+    subgraph "중앙 로깅"
+        CloudTrail[CloudTrail Logs]
+        ConfigLogs[Config Snapshots]
+        VPCFlowLogs[VPC Flow Logs]
+    end
+    
+    subgraph "Log Archive Account"
+        S3[S3 Bucket<br/>로그 저장]
+        Athena[Athena<br/>로그 분석]
+    end
+    
+    subgraph "Audit Account"
+        SecurityTeam[보안 팀]
+        Compliance[컴플라이언스 검토]
+    end
+    
+    Account1 --> CloudTrail
+    Account2 --> CloudTrail
+    Account3 --> CloudTrail
+    
+    Account1 --> ConfigLogs
+    Account2 --> ConfigLogs
+    Account3 --> ConfigLogs
+    
+    CloudTrail --> S3
+    ConfigLogs --> S3
+    VPCFlowLogs --> S3
+    
+    S3 --> Athena
+    Athena --> SecurityTeam
+    Athena --> Compliance
+    
+    style S3 fill:#e1f5ff
+    style Athena fill:#fff4e1
+    style SecurityTeam fill:#e8f5e9
+```
+
+### SSO 인증 및 권한 흐름
+
+```mermaid
+sequenceDiagram
+    participant User as 사용자
+    participant Okta as Okta
+    participant SSO as IAM Identity Center
+    participant Account as AWS Account
+    participant Role as IAM Role
+    participant Service as AWS Service
+    
+    User->>Okta: 로그인
+    Okta->>Okta: 인증 확인
+    Okta-->>User: 인증 토큰
+    
+    User->>SSO: AWS 접근 요청
+    SSO->>Okta: SAML 인증 확인
+    Okta-->>SSO: 인증 성공
+    
+    SSO->>SSO: Permission Set 확인
+    SSO->>SSO: 계정 할당 확인
+    SSO->>Account: 임시 자격 증명 생성
+    Account->>Role: AssumeRole
+    Role-->>Account: 임시 자격 증명
+    Account-->>SSO: 자격 증명 반환
+    SSO-->>User: AWS 콘솔 접근
+    
+    User->>Service: API 호출
+    Service->>Role: 권한 확인
+    Role-->>Service: 권한 허용
+    Service-->>User: 응답 반환
+```
+
 ---
 
 ## Overview

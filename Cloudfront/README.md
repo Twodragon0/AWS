@@ -164,6 +164,127 @@ CloudFront에서 S3 버킷에 직접 접근하지 못하도록 보안을 강화�
 
 이 구성을 통해 높은 보안성과 안정성을 갖춘 웹 인프라를 구축할 수 있습니다.
 
+## 🏗️ CloudFront + S3 아키텍처
+
+### 전체 CDN 아키텍처
+
+```mermaid
+graph TB
+    subgraph "사용자"
+        User1[사용자 1<br/>서울]
+        User2[사용자 2<br/>도쿄]
+        User3[사용자 3<br/>뉴욕]
+    end
+    
+    subgraph "CloudFront CDN"
+        EdgeSeoul[Edge Location<br/>서울]
+        EdgeTokyo[Edge Location<br/>도쿄]
+        EdgeNY[Edge Location<br/>뉴욕]
+        Distribution[CloudFront Distribution]
+    end
+    
+    subgraph "Origin"
+        S3[S3 Bucket<br/>Origin]
+        OAC[Origin Access Control<br/>OAC]
+    end
+    
+    subgraph "보안"
+        ACM[ACM 인증서<br/>SSL/TLS]
+        WAF[WAF<br/>웹 방화벽]
+        SecurityHeaders[Security Headers<br/>CORS, HSTS 등]
+    end
+    
+    subgraph "모니터링"
+        CloudWatch[CloudWatch Logs]
+        AccessLogs[Access Logs<br/>S3 저장]
+    end
+    
+    User1 --> EdgeSeoul
+    User2 --> EdgeTokyo
+    User3 --> EdgeNY
+    
+    EdgeSeoul --> Distribution
+    EdgeTokyo --> Distribution
+    EdgeNY --> Distribution
+    
+    Distribution --> ACM
+    Distribution --> WAF
+    Distribution --> SecurityHeaders
+    
+    Distribution --> OAC
+    OAC --> S3
+    
+    Distribution --> CloudWatch
+    Distribution --> AccessLogs
+    
+    style Distribution fill:#e1f5ff
+    style S3 fill:#fff4e1
+    style OAC fill:#e8f5e9
+    style SecurityHeaders fill:#f3e5f5
+```
+
+### 요청 처리 흐름
+
+```mermaid
+sequenceDiagram
+    participant User as 사용자
+    participant Edge as Edge Location
+    participant CF as CloudFront
+    participant OAC as Origin Access Control
+    participant S3 as S3 Bucket
+    participant WAF as WAF
+    
+    User->>Edge: HTTPS 요청
+    Edge->>CF: 요청 전달
+    
+    CF->>WAF: 보안 검사
+    WAF-->>CF: 검사 통과
+    
+    CF->>CF: 캐시 확인
+    alt 캐시 Hit
+        CF-->>Edge: 캐시된 콘텐츠 반환
+        Edge-->>User: 응답 전달
+    else 캐시 Miss
+        CF->>OAC: Origin 요청
+        OAC->>S3: 인증된 요청
+        S3-->>OAC: 콘텐츠 반환
+        OAC-->>CF: 콘텐츠 전달
+        CF->>CF: 캐시 저장
+        CF-->>Edge: 콘텐츠 반환
+        Edge-->>User: 응답 전달
+    end
+```
+
+### CORS 및 보안 헤더 흐름
+
+```mermaid
+graph LR
+    A[브라우저 요청] --> B{요청 타입}
+    B -->|Preflight| C[OPTIONS 요청]
+    B -->|실제 요청| D[GET/POST 요청]
+    
+    C --> E[CloudFront<br/>CORS 헤더 확인]
+    E --> F{Origin 허용?}
+    F -->|Yes| G[허용 헤더 반환]
+    F -->|No| H[차단]
+    
+    D --> I[CloudFront<br/>Security Headers 추가]
+    I --> J[HSTS 헤더]
+    I --> K[X-Frame-Options]
+    I --> L[X-Content-Type-Options]
+    I --> M[X-XSS-Protection]
+    
+    G --> N[브라우저]
+    J --> N
+    K --> N
+    L --> N
+    M --> N
+    
+    style E fill:#e1f5ff
+    style I fill:#fff4e1
+    style N fill:#e8f5e9
+```
+
 ## 🚀 프로젝트 구조
 
 ```

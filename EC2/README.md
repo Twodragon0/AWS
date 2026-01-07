@@ -96,6 +96,154 @@ myproject/
 
 ---
 
+## 🏗️ EC2 인프라 아키텍처
+
+### 전체 시스템 아키텍처
+
+```mermaid
+graph TB
+    subgraph "사용자 및 접근"
+        User[개발자/운영자]
+        SSO[AWS Identity Center<br/>SSO]
+        CLI[AWS CLI]
+    end
+    
+    subgraph "Terraform 관리"
+        TFInit[Initial Setup<br/>S3/DynamoDB 생성]
+        TFBackend[Terraform Backend<br/>S3 State + DynamoDB Lock]
+        TFMain[Terraform Main<br/>인프라 프로비저닝]
+    end
+    
+    subgraph "VPC 네트워크"
+        VPC[VPC<br/>10.0.0.0/16]
+        PublicSubnet[Public Subnet<br/>10.0.2.0/24]
+        PrivateSubnet[Private Subnet<br/>10.0.1.0/24]
+        IGW[Internet Gateway]
+        NAT[NAT Gateway]
+        VPCEndpoint[VPC Endpoints<br/>SSM, S3, DynamoDB]
+    end
+    
+    subgraph "컴퓨팅 리소스"
+        EC2[EC2 Instance<br/>Private Subnet]
+        SSM[SSM Session Manager]
+    end
+    
+    subgraph "모니터링 및 알림"
+        Lambda[Lambda Function<br/>AWS Monitor]
+        CloudWatch[CloudWatch Events<br/>스케줄 트리거]
+        SNS[SNS Topic<br/>알림]
+        S3[S3 Bucket<br/>모니터링 결과 저장]
+    end
+    
+    subgraph "보안"
+        SG[Security Groups]
+        IAMRole[IAM Roles<br/>SSM, Lambda]
+    end
+    
+    User --> SSO
+    SSO --> CLI
+    CLI --> TFInit
+    TFInit --> TFBackend
+    TFBackend --> TFMain
+    TFMain --> VPC
+    TFMain --> Lambda
+    TFMain --> SG
+    
+    VPC --> PublicSubnet
+    VPC --> PrivateSubnet
+    PublicSubnet --> IGW
+    PublicSubnet --> NAT
+    NAT --> PrivateSubnet
+    PrivateSubnet --> EC2
+    PrivateSubnet --> VPCEndpoint
+    
+    EC2 --> SSM
+    VPCEndpoint --> SSM
+    
+    CloudWatch --> Lambda
+    Lambda --> EC2
+    Lambda --> S3
+    Lambda --> SNS
+    
+    EC2 --> SG
+    EC2 --> IAMRole
+    Lambda --> IAMRole
+    
+    style VPC fill:#e1f5ff
+    style Lambda fill:#fff4e1
+    style SSO fill:#e8f5e9
+    style VPCEndpoint fill:#f3e5f5
+```
+
+### 인프라 프로비저닝 흐름
+
+```mermaid
+sequenceDiagram
+    participant Dev as 개발자
+    participant TF as Terraform
+    participant S3 as S3 Backend
+    participant DynamoDB as DynamoDB Lock
+    participant AWS as AWS Services
+    participant Lambda as Lambda Function
+    participant CloudWatch as CloudWatch Events
+    
+    Dev->>TF: terraform init
+    TF->>S3: Backend 초기화
+    TF->>DynamoDB: Lock 테이블 확인
+    
+    Dev->>TF: terraform plan
+    TF->>AWS: 리소스 계획 확인
+    AWS-->>TF: 계획 반환
+    
+    Dev->>TF: terraform apply
+    TF->>DynamoDB: State Lock 획득
+    TF->>AWS: VPC 생성
+    TF->>AWS: 서브넷 생성
+    TF->>AWS: NAT Gateway 생성
+    TF->>AWS: VPC Endpoints 생성
+    TF->>AWS: EC2 인스턴스 생성
+    TF->>AWS: Lambda 함수 생성
+    TF->>AWS: Security Groups 생성
+    TF->>S3: State 저장
+    TF->>DynamoDB: Lock 해제
+    
+    CloudWatch->>Lambda: 정기 실행 (스케줄)
+    Lambda->>AWS: EC2 모니터링
+    Lambda->>AWS: ALB 모니터링
+    Lambda->>AWS: RDS 모니터링
+    Lambda->>S3: 결과 저장
+    Lambda->>SNS: 알림 발송
+```
+
+### 모니터링 시스템 흐름
+
+```mermaid
+graph LR
+    A[CloudWatch Events<br/>스케줄 트리거] --> B[Lambda Function<br/>AWS Monitor]
+    B --> C{리소스 타입}
+    C -->|EC2| D[EC2 인스턴스<br/>태그/보안그룹 필터링]
+    C -->|ALB| E[Application Load Balancer<br/>IP 주소 모니터링]
+    C -->|RDS| F[RDS 인스턴스<br/>Public IP 확인]
+    C -->|CloudFront| G[CloudFront 배포<br/>도메인 정보]
+    
+    D --> H[데이터 수집]
+    E --> H
+    F --> H
+    G --> H
+    
+    H --> I[Excel 파일 생성]
+    I --> J[S3 업로드]
+    H --> K{이상 탐지}
+    K -->|발견| L[SNS 알림]
+    K -->|정상| M[로그 기록]
+    
+    style B fill:#e1f5ff
+    style H fill:#fff4e1
+    style L fill:#ffcccc
+```
+
+---
+
 ## AWS Identity Center (SSO) 설정
 
 AWS Identity Center (SSO)는 AWS 리소스에 대한 중앙 집중식 접근 관리를 제공합니다. Terraform을 사용하여 인프라를 관리할 때 보안을 강화할 수 있습니다.

@@ -21,7 +21,6 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { execSync } from 'child_process';
-import * as ec2 from 'aws-cdk-lib/aws-ec2';
 
 // Import L2 constructs
 import * as iam from 'aws-cdk-lib/aws-iam';
@@ -38,6 +37,10 @@ import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as kms from 'aws-cdk-lib/aws-kms';
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
+import * as cloudwatch_actions from 'aws-cdk-lib/aws-cloudwatch-actions';
+import * as sns from 'aws-cdk-lib/aws-sns';
+import * as cloudtrail from 'aws-cdk-lib/aws-cloudtrail';
 
 // RAG Query MODEL_ID (Update dependent on model access and AWS Regional Support):
 // Amazon Titan Models: "amazon.titan-text-premier-v1:0"
@@ -64,6 +67,30 @@ const AWS_ACCOUNT = process.env.CDK_DEFAULT_ACCOUNT;
 export class AmazonBedrockKnowledgebaseSlackbotStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
+
+    // DevSecOps: 리소스 태깅 추가 (FinOps 비용 추적)
+    const commonTags = {
+      Project: 'Bedrock-SlackBot',
+      Environment: 'Production',
+      ManagedBy: 'CDK',
+      CostCenter: 'DevSecOps',
+      Owner: 'DevSecOps-Team',
+      Purpose: 'AIOps-Chatbot'
+    };
+
+    // DevSecOps: KMS 키 생성 (암호화 강화) - 먼저 생성하여 다른 리소스에서 사용
+    const encryptionKey = new kms.Key(this, 'EncryptionKey', {
+      enableKeyRotation: true,
+      description: 'KMS key for Slack bot data encryption',
+      removalPolicy: cdk.RemovalPolicy.RETAIN, // 보안: 키는 유지
+      alias: 'bedrock-slackbot-encryption-key'
+    });
+    
+    // KMS 키 태깅
+    cdk.Tags.of(encryptionKey).add('Name', 'bedrock-slackbot-kms-key');
+    Object.entries(commonTags).forEach(([key, value]) => {
+      cdk.Tags.of(encryptionKey).add(key, value);
+    });
 
     // Get secrets from context or use default values for development
     const slackBotToken = this.node.tryGetContext('slackBotToken') || 'dummy-token-for-development';
@@ -106,14 +133,49 @@ export class AmazonBedrockKnowledgebaseSlackbotStack extends cdk.Stack {
       tier: ssm.ParameterTier.STANDARD
     });
 
-    // define an s3 bucket
+    // define an s3 bucket with FinOps optimization
     const s3Bucket = new s3.Bucket(this, 'kb-bucket', {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL, 
-      encryption: s3.BucketEncryption.S3_MANAGED,
+      encryption: s3.BucketEncryption.KMS,
+      encryptionKey: encryptionKey,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: true, 
       enforceSSL: true,
-      versioned: true, // Add versioning
+      versioned: true,
+      // FinOps: Lifecycle 정책으로 비용 최적화
+      lifecycleRules: [
+        {
+          id: 'transition-to-ia',
+          enabled: true,
+          transitions: [
+            {
+              storageClass: s3.StorageClass.INFREQUENT_ACCESS,
+              transitionAfter: cdk.Duration.days(30)
+            }
+          ]
+        },
+        {
+          id: 'transition-to-glacier',
+          enabled: true,
+          transitions: [
+            {
+              storageClass: s3.StorageClass.GLACIER,
+              transitionAfter: cdk.Duration.days(90)
+            }
+          ]
+        },
+        {
+          id: 'delete-old-versions',
+          enabled: true,
+          noncurrentVersionExpiration: cdk.Duration.days(365)
+        }
+      ]
+    });
+    
+    // 태깅 적용
+    cdk.Tags.of(s3Bucket).add('Name', 'bedrock-kb-bucket');
+    Object.entries(commonTags).forEach(([key, value]) => {
+      cdk.Tags.of(s3Bucket).add(key, value);
     });
     NagSuppressions.addResourceSuppressions(s3Bucket, [
       { id: 'AwsSolutions-S1', reason: 'S3 access logging not required for sample code' }
@@ -523,11 +585,6 @@ export class AmazonBedrockKnowledgebaseSlackbotStack extends cdk.Stack {
     lambdaGRinvokePolicy.addActions("bedrock:ApplyGuardrail");
     lambdaGRinvokePolicy.addResources(`arn:aws:bedrock:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:guardrail/*`);
 
-    // KMS 키 생성
-    const encryptionKey = new kms.Key(this, 'EncryptionKey', {
-      enableKeyRotation: true,
-      description: 'KMS key for Slack bot data encryption'
-    });
 
     // DynamoDB 테이블 먼저 생성
     const eventTrackingTable = new dynamodb.Table(this, 'SlackEventTrackingTable', {
@@ -541,10 +598,27 @@ export class AmazonBedrockKnowledgebaseSlackbotStack extends cdk.Stack {
       pointInTimeRecovery: false
     });
 
-    // 4. 그 다음 Lambda 함수 정의 (vpc와 lambdaSecurityGroup 사용)
+    // DevSecOps: CloudTrail 로깅 설정
+    const trail = new cloudtrail.Trail(this, 'BedrockSlackbotTrail', {
+      trailName: 'bedrock-slackbot-cloudtrail',
+      enableFileValidation: true,
+      includeGlobalServiceEvents: true,
+      isMultiRegionTrail: false,
+      sendToCloudWatchLogs: true,
+      cloudWatchLogsRetention: logs.RetentionDays.ONE_MONTH
+    });
+    
+    // CloudTrail 태깅
+    cdk.Tags.of(trail).add('Name', 'bedrock-slackbot-trail');
+    Object.entries(commonTags).forEach(([key, value]) => {
+      cdk.Tags.of(trail).add(key, value);
+    });
+
+    // FinOps: Lambda 메모리 최적화 (512MB -> 256MB로 조정, 필요시 조정)
+    // DevOps: 타임아웃 최적화 (10분 -> 5분)
     const bedrockKbSlackbotFunction = new lambda.Function(this, 'BedrockKbSlackbotFunction', {
       runtime: lambda.Runtime.PYTHON_3_12,
-      memorySize: 512,
+      memorySize: 256, // FinOps: 비용 최적화를 위해 메모리 감소
       environment: {
         "RAG_MODEL_ID": RAG_MODEL_ID,
         "SLACK_SLASH_COMMAND": SLACK_SLASH_COMMAND,
@@ -583,7 +657,15 @@ export class AmazonBedrockKnowledgebaseSlackbotStack extends cdk.Stack {
           }
         }
       }),
-      timeout: cdk.Duration.minutes(10)
+      timeout: cdk.Duration.minutes(5), // DevOps: 타임아웃 최적화
+      // DevSecOps: 환경 변수 암호화
+      environmentEncryption: encryptionKey
+    });
+    
+    // Lambda 함수 태깅
+    cdk.Tags.of(bedrockKbSlackbotFunction).add('Name', 'bedrock-kb-slackbot-function');
+    Object.entries(commonTags).forEach(([key, value]) => {
+      cdk.Tags.of(bedrockKbSlackbotFunction).add(key, value);
     });
 
     // Lambda 삭제 정책 설정
@@ -752,5 +834,135 @@ export class AmazonBedrockKnowledgebaseSlackbotStack extends cdk.Stack {
     });
     
     bedrockKbSlackbotFunction.addToRolePolicy(dynamoDbListTablesPolicy);
+    
+    // DevOps: CloudWatch 대시보드 생성
+    const dashboard = new cloudwatch.Dashboard(this, 'BedrockSlackbotDashboard', {
+      dashboardName: 'Bedrock-Slackbot-Monitoring'
+    });
+    
+    // Lambda 메트릭 위젯
+    dashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: 'Lambda Invocations',
+        left: [bedrockKbSlackbotFunction.metricInvocations()],
+        width: 12
+      }),
+      new cloudwatch.GraphWidget({
+        title: 'Lambda Errors',
+        left: [bedrockKbSlackbotFunction.metricErrors()],
+        width: 12
+      }),
+      new cloudwatch.GraphWidget({
+        title: 'Lambda Duration',
+        left: [bedrockKbSlackbotFunction.metricDuration()],
+        width: 12
+      }),
+      new cloudwatch.GraphWidget({
+        title: 'Lambda Throttles',
+        left: [bedrockKbSlackbotFunction.metricThrottles()],
+        width: 12
+      })
+    );
+    
+    // DevOps: SNS 토픽 생성 (알람용)
+    const alarmTopic = new sns.Topic(this, 'BedrockSlackbotAlarmTopic', {
+      topicName: 'bedrock-slackbot-alarms',
+      displayName: 'Bedrock Slackbot Alarms'
+    });
+    
+    // DevOps: Lambda 에러 알람
+    const lambdaErrorAlarm = new cloudwatch.Alarm(this, 'LambdaErrorAlarm', {
+      metric: bedrockKbSlackbotFunction.metricErrors({
+        statistic: 'Sum',
+        period: cdk.Duration.minutes(1)
+      }),
+      threshold: 5,
+      alarmName: 'bedrock-slackbot-lambda-errors',
+      alarmDescription: 'Alert when Lambda function errors exceed threshold',
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+      datapointsToAlarm: 2,
+      evaluationPeriods: 2
+    });
+    lambdaErrorAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
+    
+    // DevOps: Lambda 지속 시간 알람 (FinOps: 비용 최적화)
+    const lambdaDurationAlarm = new cloudwatch.Alarm(this, 'LambdaDurationAlarm', {
+      metric: bedrockKbSlackbotFunction.metricDuration({
+        statistic: 'Average',
+        period: cdk.Duration.minutes(1)
+      }),
+      threshold: 300000, // 5분 (밀리초)
+      alarmName: 'bedrock-slackbot-lambda-duration',
+      alarmDescription: 'Alert when Lambda function duration exceeds 5 minutes (cost optimization)',
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+      datapointsToAlarm: 2,
+      evaluationPeriods: 2
+    });
+    lambdaDurationAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
+    
+    // DevOps: Lambda 쓰로틀 알람
+    const lambdaThrottleAlarm = new cloudwatch.Alarm(this, 'LambdaThrottleAlarm', {
+      metric: bedrockKbSlackbotFunction.metricThrottles({
+        statistic: 'Sum',
+        period: cdk.Duration.minutes(1)
+      }),
+      threshold: 1,
+      alarmName: 'bedrock-slackbot-lambda-throttles',
+      alarmDescription: 'Alert when Lambda function is throttled',
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+      datapointsToAlarm: 1,
+      evaluationPeriods: 1
+    });
+    lambdaThrottleAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
+    
+    // FinOps: API Gateway 비용 알람 (요청 수 기반)
+    const apiGatewayRequests = api.metricCount({
+      statistic: 'Sum',
+      period: cdk.Duration.hours(1)
+    });
+    
+    const apiGatewayCostAlarm = new cloudwatch.Alarm(this, 'ApiGatewayCostAlarm', {
+      metric: apiGatewayRequests,
+      threshold: 10000, // 시간당 10,000 요청
+      alarmName: 'bedrock-slackbot-api-cost',
+      alarmDescription: 'Alert when API Gateway requests exceed cost threshold',
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+      datapointsToAlarm: 1,
+      evaluationPeriods: 1
+    });
+    apiGatewayCostAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
+    
+    // FinOps: Budget 설정 (월 예산 알람)
+    // 주의: Budget은 AWS 계정 레벨 리소스이므로 CDK로 관리하기보다는 
+    // AWS 콘솔이나 AWS CLI를 사용하여 설정하는 것을 권장합니다.
+    // 
+    // Budget 설정 방법:
+    // 1. AWS 콘솔: Billing > Budgets > Create budget
+    // 2. AWS CLI: 
+    //    aws budgets create-budget --account-id <account-id> --budget file://budget.json
+    // 
+    // budget.json 예시:
+    // {
+    //   "BudgetName": "bedrock-slackbot-monthly-budget",
+    //   "BudgetLimit": {
+    //     "Amount": "100",
+    //     "Unit": "USD"
+    //   },
+    //   "TimeUnit": "MONTHLY",
+    //   "BudgetType": "COST",
+    //   "CostFilters": {
+    //     "TagKeyValue": ["user:Project$Bedrock-SlackBot"]
+    //   }
+    // }
+    
+    // 모든 리소스에 태깅 적용
+    cdk.Tags.of(this).add('Project', 'Bedrock-SlackBot');
+    cdk.Tags.of(this).add('Environment', 'Production');
+    cdk.Tags.of(this).add('ManagedBy', 'CDK');
+    cdk.Tags.of(this).add('CostCenter', 'DevSecOps');
 }
 }

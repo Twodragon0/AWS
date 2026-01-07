@@ -31,6 +31,46 @@ from slack_bolt.adapter.aws_lambda import SlackRequestHandler
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
+# DevSecOps: 로깅 설정 최적화 (FinOps: 비용 절감)
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)  # DEBUG -> INFO로 변경하여 로그 비용 절감
+
+# DevOps: CloudWatch 메트릭 클라이언트
+cloudwatch = boto3.client('cloudwatch')
+
+# DevOps: 커스텀 메트릭 발행 함수
+def put_metric(metric_name, value, unit='Count'):
+    """CloudWatch 커스텀 메트릭 발행"""
+    try:
+        cloudwatch.put_metric_data(
+            Namespace='BedrockSlackbot',
+            MetricData=[
+                {
+                    'MetricName': metric_name,
+                    'Value': value,
+                    'Unit': unit,
+                    'Timestamp': time.time()
+                }
+            ]
+        )
+    except Exception as e:
+        logger.error(f"메트릭 발행 실패: {str(e)}")
+
+# DevSecOps: 입력 검증 함수
+def validate_input(text, max_length=1000):
+    """사용자 입력 검증"""
+    if not text or not isinstance(text, str):
+        return False, "입력이 비어있거나 유효하지 않습니다."
+    if len(text) > max_length:
+        return False, f"입력이 너무 깁니다. 최대 {max_length}자까지 허용됩니다."
+    # 위험한 문자 패턴 검사
+    dangerous_patterns = ['<script', 'javascript:', 'onerror=']
+    text_lower = text.lower()
+    for pattern in dangerous_patterns:
+        if pattern in text_lower:
+            return False, "잠재적으로 위험한 입력이 감지되었습니다."
+    return True, None
+
 # DynamoDB 클라이언트 초기화
 dynamodb = boto3.resource('dynamodb')
 # 이벤트 추적을 위한 테이블 이름
@@ -218,18 +258,39 @@ def process_command_request(respond, body):
     Receive the Slack Slash Command user query and proxy the query to Bedrock Knowledge base ReteriveandGenerate API 
     and return the response to Slack to be presented in the users chat thread. 
   '''
+  start_time = time.time()
   try:
     # Get the user query
-    user_query = body["text"]
-    logging.info(f"${SLACK_SLASH_COMMAND} - Responding to command: {SLACK_SLASH_COMMAND} - User Query: {user_query}")
+    user_query = body.get("text", "").strip()
+    
+    # DevSecOps: 입력 검증
+    is_valid, error_message = validate_input(user_query)
+    if not is_valid:
+      logger.warning(f"입력 검증 실패: {error_message}")
+      put_metric('InvalidInput', 1)
+      respond(f"${SLACK_SLASH_COMMAND} - {error_message}")
+      return
+    
+    logger.info(f"${SLACK_SLASH_COMMAND} - Responding to command: {SLACK_SLASH_COMMAND} - User Query: {html.escape(user_query[:100])}")  # FinOps: 로그 길이 제한
 
+    # DevOps: 메트릭 발행 (요청 수)
+    put_metric('CommandRequests', 1)
+    
     kb_response = get_bedrock_knowledgebase_response(user_query)
     response_text = kb_response["output"]["text"]
+    
+    # DevOps: 처리 시간 메트릭
+    duration = (time.time() - start_time) * 1000  # 밀리초
+    put_metric('CommandDuration', duration, 'Milliseconds')
+    
     respond(f"\n${SLACK_SLASH_COMMAND} - Response: {response_text}\n")
+    put_metric('CommandSuccess', 1)
   
   except Exception as err:
-    print(f"${SLACK_SLASH_COMMAND} - Error: {err}")
-    respond(f"${SLACK_SLASH_COMMAND} - Sorry an error occurred. Please try again later. Error: {err}")
+    # DevOps: 에러 메트릭
+    put_metric('CommandErrors', 1)
+    logger.error(f"${SLACK_SLASH_COMMAND} - Error: {html.escape(str(err))}")  # DevSecOps: 에러 메시지 이스케이프
+    respond(f"${SLACK_SLASH_COMMAND} - Sorry an error occurred. Please try again later.")
 
 def get_bedrock_knowledgebase_response(user_query):
   '''
@@ -238,31 +299,58 @@ def get_bedrock_knowledgebase_response(user_query):
     provides Slack required ack in 3 sec. It doesn't trigger any bedrock functions and is 
     time sensitive. 
   '''
+  bedrock_start_time = time.time()
+  
+  try:
+    # DevSecOps: 입력 재검증
+    is_valid, error_message = validate_input(user_query)
+    if not is_valid:
+      raise ValueError(error_message)
 
-  #Create the RetrieveAndGenerateCommand input with the user query.
-  input =  { 
-      "text": user_query
+    #Create the RetrieveAndGenerateCommand input with the user query.
+    input =  { 
+        "text": user_query
+      }
+
+    config = {
+      "type" : "KNOWLEDGE_BASE",
+      "knowledgeBaseConfiguration": {
+          "generationConfiguration": {
+              "guardrailConfiguration": {
+                  "guardrailId": GUARD_RAIL_ID,
+                  "guardrailVersion": GUARD_VERSION
+              },
+          },
+          "knowledgeBaseId": KNOWLEDGEBASE_ID,
+          "modelArn": RAG_MODEL_ID
+     }
     }
 
-  config = {
-    "type" : "KNOWLEDGE_BASE",
-    "knowledgeBaseConfiguration": {
-        "generationConfiguration": {
-            "guardrailConfiguration": {
-                "guardrailId": GUARD_RAIL_ID,
-                "guardrailVersion": GUARD_VERSION
-            },
-        },
-        "knowledgeBaseId": KNOWLEDGEBASE_ID,
-        "modelArn": RAG_MODEL_ID
-   }
-  }
-
-  response = bedrock_client.retrieve_and_generate(
-    input=input, retrieveAndGenerateConfiguration=config
-  )
-  logging.info(f"Bedrock Knowledge Base Response: {html.escape(str(response))}") # Sanitize the response before logging
-  return response
+    # DevOps: Bedrock 호출 메트릭
+    put_metric('BedrockInvocations', 1)
+    
+    response = bedrock_client.retrieve_and_generate(
+      input=input, retrieveAndGenerateConfiguration=config
+    )
+    
+    # DevOps: Bedrock 응답 시간 메트릭
+    bedrock_duration = (time.time() - bedrock_start_time) * 1000
+    put_metric('BedrockDuration', bedrock_duration, 'Milliseconds')
+    
+    # FinOps: 로그 최적화 (전체 응답 대신 요약만 로깅)
+    response_summary = {
+      'status': 'success',
+      'has_output': 'output' in response,
+      'duration_ms': round(bedrock_duration, 2)
+    }
+    logger.info(f"Bedrock Knowledge Base Response: {json.dumps(response_summary)}")
+    
+    return response
+  except Exception as e:
+    # DevOps: Bedrock 에러 메트릭
+    put_metric('BedrockErrors', 1)
+    logger.error(f"Bedrock 호출 오류: {html.escape(str(e))}")
+    raise
 
 # Init the Slack Slash '/' command handler.
 app.command(SLACK_SLASH_COMMAND)(ack=respond_to_slack_within_3_seconds, lazy=[process_command_request])
@@ -443,9 +531,13 @@ def handle_mentions(event, say, client, logger):
 
 # ────────────────────────────────────────────────────────────────────────────────
 
-# Init the Slack Bolt logger and log handlers. 
+# Init the Slack Bolt logger and log handlers.
+# FinOps: 로그 레벨을 INFO로 설정하여 비용 절감
 SlackRequestHandler.clear_all_log_handlers()
-logging.basicConfig(format="%(asctime)s %(message)s", level=logging.DEBUG)
+logging.basicConfig(
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    level=logging.INFO  # DEBUG -> INFO로 변경
+)
 
 # Lambda handler method.
 
