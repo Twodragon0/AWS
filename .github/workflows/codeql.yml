@@ -5,14 +5,24 @@ on:
     branches: [ "main", "master" ]
     paths-ignore:
       - "**/node_modules/**"
+      - "**/aws-cdk/**"
       - "**/aws-cdk/lib/init-templates/**"
       - "**/terraform/modules/lambda/python/**"
+      - "**/__pycache__/**"
+      - "**/*.pyc"
+      - "**/.venv/**"
+      - "**/venv/**"
   pull_request:
     branches: [ "main", "master" ]
     paths-ignore:
       - "**/node_modules/**"
+      - "**/aws-cdk/**"
       - "**/aws-cdk/lib/init-templates/**"
       - "**/terraform/modules/lambda/python/**"
+      - "**/__pycache__/**"
+      - "**/*.pyc"
+      - "**/.venv/**"
+      - "**/venv/**"
   schedule:
     # Run weekly on Monday at 2:00 UTC
     - cron: '0 2 * * 1'
@@ -59,6 +69,16 @@ jobs:
           echo "✅ CodeQL default setup is disabled or not configured."
           echo "default_setup_enabled=false" >> $GITHUB_OUTPUT
         fi
+
+    - name: Clean up node_modules and aws-cdk templates before CodeQL
+      if: matrix.language == 'python' && steps.check_default_setup.outputs.default_setup_enabled != 'true'
+      continue-on-error: true
+      run: |
+        echo "Cleaning up files that cause CodeQL parsing errors..."
+        # Remove aws-cdk template files that cause syntax errors
+        find . -path "*/node_modules/aws-cdk/lib/init-templates/**/*.py" -type f -delete 2>/dev/null || true
+        find . -path "*/aws-cdk/lib/init-templates/**/*.py" -type f -delete 2>/dev/null || true
+        echo "Cleanup completed"
 
     - name: Initialize CodeQL
       if: steps.check_default_setup.outputs.default_setup_enabled != 'true' || steps.check_default_setup.outcome == 'failure'

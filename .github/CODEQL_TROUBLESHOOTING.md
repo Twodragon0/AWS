@@ -83,7 +83,77 @@ CodeQL analyses from advanced configurations cannot be processed when the defaul
 
 ---
 
-### 4. 메모리 부족 오류
+### 4. "No supported build system detected" (C/C++ 언어)
+
+**증상**:
+```
+CodeQL exited with errors
+No supported build system detected
+CodeQL could not detect the build command.
+```
+
+**원인**:
+- GitHub 저장소의 CodeQL 기본 설정(Default setup)에서 C/C++ 언어가 자동으로 감지됨
+- 이 프로젝트에는 실제 C/C++ 소스 코드가 없고, Python 패키지(numpy, pandas 등) 내부의 C 확장 파일만 존재
+- C/C++ 빌드 시스템이 없어서 CodeQL이 빌드 명령을 감지하지 못함
+
+**해결 방법**:
+
+1. **GitHub 저장소 설정에서 C/C++ 언어 제거**:
+   - 저장소로 이동: `https://github.com/YOUR_USERNAME/YOUR_REPO`
+   - **Settings** > **Code security and analysis** 이동
+   - **Code scanning** 섹션에서 **CodeQL analysis** 클릭
+   - **Configure** 또는 **Edit** 클릭
+   - **Languages** 섹션에서 **C/C++** 언어 제거
+   - **JavaScript**와 **Python**만 유지
+   - 변경사항 저장
+
+2. **또는 CodeQL 기본 설정 완전히 비활성화**:
+   - **Settings** > **Code security and analysis** 이동
+   - **Code scanning** 섹션에서 **Default setup** 비활성화
+   - 커스텀 워크플로우만 사용 (권장)
+
+**참고**: 이 프로젝트는 JavaScript와 Python만 사용하므로 C/C++ 언어는 필요하지 않습니다.
+
+---
+
+### 5. "Could not process some files due to syntax errors" (Python)
+
+**증상**:
+```
+Could not process some files due to syntax errors
+A parse error occurred while processing .../node_modules/aws-cdk/lib/init-templates/app/python/app.template.py
+```
+
+**원인**:
+- `node_modules` 내의 AWS CDK 템플릿 파일들이 CodeQL에 의해 스캔됨
+- 이러한 템플릿 파일들은 완전한 Python 파일이 아니어서 파싱 오류 발생
+- Python 패키지 의존성 내부의 파일들이 스캔됨
+
+**해결 방법**:
+
+1. **워크플로우에서 자동으로 제외됨** (이미 적용됨):
+   - `paths-ignore`에 `**/node_modules/**` 및 `**/aws-cdk/**` 추가됨
+   - Python 분석 전에 문제가 되는 파일 자동 삭제
+
+2. **수동 확인**:
+   ```bash
+   # 문제가 되는 파일 확인
+   find . -path "*/node_modules/aws-cdk/lib/init-templates/**/*.py" -type f
+   
+   # 파일 삭제 (워크플로우에서 자동 처리됨)
+   find . -path "*/node_modules/aws-cdk/lib/init-templates/**/*.py" -type f -delete
+   ```
+
+3. **.gitignore 확인**:
+   - `node_modules`가 `.gitignore`에 포함되어 있는지 확인
+   - CodeQL은 기본적으로 `.gitignore`를 존중합니다
+
+**참고**: 이러한 경고는 분석 결과에는 영향을 주지 않으며, 실제 프로젝트 코드만 분석됩니다.
+
+---
+
+### 6. 메모리 부족 오류
 
 **증상**:
 - "Out of memory" 오류
@@ -159,10 +229,12 @@ Node.js 프로젝트의 경우 npm 캐시를 활용:
 문제 해결 전 확인 사항:
 
 - [ ] GitHub 저장소에서 CodeQL 기본 설정이 비활성화되어 있는가?
+- [ ] CodeQL 언어 설정에서 JavaScript와 Python만 활성화되어 있는가? (C/C++ 제거)
 - [ ] 워크플로우 파일의 문법이 올바른가?
 - [ ] 필요한 파일들(package.json, requirements.txt 등)이 존재하는가?
 - [ ] 타임아웃 설정이 적절한가?
 - [ ] 권한(permissions)이 올바르게 설정되어 있는가?
+- [ ] `node_modules`와 `aws-cdk` 템플릿 파일이 제외되어 있는가?
 
 ---
 
