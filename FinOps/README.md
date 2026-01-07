@@ -333,4 +333,15 @@ infracost breakdown --path .
 
 ---
 
+## 📝 관련 블로그 포스트
+
+이 프로젝트와 관련된 블로그 포스트를 참고하세요:
+
+- [클라우드 시큐리티 8기 3주차: AWS FinOps 아키텍처부터 ISMS-P 보안 감사까지 완벽 공략!](https://twodragon.tistory.com/703)
+- [클라우드 시큐리티 과정 7기 - 3주차 AWS 보안 및 Finops](https://twodragon.tistory.com/679)
+
+더 많은 블로그 포스트는 [Twodragon 블로그](https://twodragon.tistory.com)에서 확인하실 수 있습니다.
+
+---
+
 **마지막 업데이트**: 2025-01-27

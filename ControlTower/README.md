@@ -337,3 +337,15 @@ AWS Control Tower and AWS SSO also help organizations comply with the **Electron
 Integrating Okta with AWS IAM Identity Center (AWS SSO) and deploying AWS Control Tower streamlines AWS account management, enhances security, and ensures compliance with regulations like ISMS-P and the **Electronic Financial Supervisory Regulations**. By centralizing governance, logging, and permissions management, organizations can improve operational efficiency while reducing complexity and security risks.
 
 For further information, refer to the official AWS documentation for [AWS Control Tower](https://docs.aws.amazon.com/controltower/latest/userguide/what-is-control-tower.html) and [AWS SSO](https://docs.aws.amazon.com/singlesignon/latest/userguide/what-is.html).
+
+---
+
+## 📝 관련 블로그 포스트
+
+이 프로젝트와 관련된 블로그 포스트를 참고하세요:
+
+- [클라우드 시큐리티 과정 8기 5주차: AWS Control Tower/SCP 기반 거버넌스 및 Datadog SIEM, Cloudflare 보안](https://twodragon.tistory.com/706)
+- [클라우드 시큐리티 과정 7기 - 5주차 AWS Control Tower 및 ZTNA](https://twodragon.tistory.com/683)
+- [Zscaler 완벽 가이드: SSL 검사, 샌드박스, AI, 광고, 유해 사이트 완벽 차단](https://twodragon.tistory.com/698)
+
+더 많은 블로그 포스트는 [Twodragon 블로그](https://twodragon.tistory.com)에서 확인하실 수 있습니다.

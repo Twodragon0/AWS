@@ -164,6 +164,18 @@ CloudFront에서 S3 버킷에 직접 접근하지 못하도록 보안을 강화�
 
 이 구성을 통해 높은 보안성과 안정성을 갖춘 웹 인프라를 구축할 수 있습니다.
 
+---
+
+## 📝 관련 블로그 포스트
+
+이 프로젝트와 관련된 블로그 포스트를 참고하세요:
+
+- [[Post-Mortem] 2025년 11월 18일 Cloudflare 글로벌 장애 대응 일지: 우리는 무엇을 배웠나](https://twodragon.tistory.com/699)
+- [클라우드 시큐리티 과정 7기 - 6주차 Cloudflare 및 github 보안](https://twodragon.tistory.com/684)
+- [클라우드 시큐리티 과정 8기 5주차: AWS Control Tower/SCP 기반 거버넌스 및 Datadog SIEM, Cloudflare 보안](https://twodragon.tistory.com/706)
+
+더 많은 블로그 포스트는 [Twodragon 블로그](https://twodragon.tistory.com)에서 확인하실 수 있습니다.
+
 ## 🏗️ CloudFront + S3 아키텍처
 
 ### 전체 CDN 아키텍처

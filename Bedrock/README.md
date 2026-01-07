@@ -745,3 +745,14 @@ graph LR
 4. **캐싱**: API Gateway 응답 캐싱
 5. **비용 이상 탐지**: Cost Anomaly Detection 활성화
 6. **자동 스케일링**: 필요시 Auto Scaling 설정
+
+---
+
+## 📝 관련 블로그 포스트
+
+이 프로젝트와 관련된 블로그 포스트를 참고하세요:
+
+- [AI 시대, 당신의 '비서'가 '보안 구멍'이 되지 않도록: 기업을 위한 AI 서비스 보안 가이드](https://twodragon.tistory.com/697)
+- [Amazon Q Developer와 GitHub Advanced Security를 활용한 코드 보안 강화 및 AWS 최적화](https://twodragon.tistory.com/685)
+
+더 많은 블로그 포스트는 [Twodragon 블로그](https://twodragon.tistory.com)에서 확인하실 수 있습니다.

@@ -1103,4 +1103,16 @@ requests
 
 ---
 
+## 📝 관련 블로그 포스트
+
+이 프로젝트와 관련된 블로그 포스트를 참고하세요:
+
+- [클라우드 시큐리티 8기 1주차: 인프라의 본질부터 보안의 미래까지](https://twodragon.tistory.com/701)
+- [클라우드 시큐리티 8기 2주차: AWS 보안 아키텍처의 핵심, VPC부터 GuardDuty까지 완벽 정복!](https://twodragon.tistory.com/702)
+- [AWS에서 안전한 데이터베이스 접근 게이트웨이 구축하기: NLB + Security Group 완벽 가이드](https://twodragon.tistory.com/696)
+
+더 많은 블로그 포스트는 [Twodragon 블로그](https://twodragon.tistory.com)에서 확인하실 수 있습니다.
+
+---
+
 **추가적인 도움이 필요하시거나 다른 문제가 발생하면 언제든지 문의해 주세요!**

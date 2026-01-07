@@ -419,6 +419,16 @@ graph LR
 - 정기적으로 정책을 검토하고 불필요한 권한을 제거하세요.
 - 민감한 리소스에 대한 접근은 추가적인 보안 계층을 고려하세요.
 
+## 📝 관련 블로그 포스트
+
+이 프로젝트와 관련된 블로그 포스트를 참고하세요:
+
+- [클라우드 시큐리티 8기 2주차: AWS 보안 아키텍처의 핵심, VPC부터 GuardDuty까지 완벽 정복!](https://twodragon.tistory.com/702)
+- [공용 PC에서도 안전하게! 패스키, OTP, 강력한 암호 관리 활용법](https://twodragon.tistory.com/678)
+- [SKT 보안 이슈 완벽 대응 가이드: IMEI 확인, USIM/eSIM 교체, 그리고 MFA의 중요성](https://twodragon.tistory.com/677)
+
+더 많은 블로그 포스트는 [Twodragon 블로그](https://twodragon.tistory.com)에서 확인하실 수 있습니다.
+
 ---
 
 **작성자**: [Twodragon](https://twodragon.tistory.com)  

@@ -514,6 +514,17 @@ graph LR
 - 이벤트 규칙의 이벤트 패턴 정확성 확인
 - SNS 토픽 권한 설정 확인
 
+## 📝 관련 블로그 포스트
+
+이 프로젝트와 관련된 블로그 포스트를 참고하세요:
+
+- [NPM "Shai-Hulud" 자가 복제 웜 공격: 180개 이상 패키지 침해된 대규모 공급망 공격 완전 분석](https://twodragon.tistory.com/694)
+- [[긴급] npm 생태계 대규모 보안 침해: 20억 다운로드 패키지 악성코드 감염](https://twodragon.tistory.com/692)
+- [Amazon Q Developer와 GitHub Advanced Security를 활용한 코드 보안 강화 및 AWS 최적화](https://twodragon.tistory.com/685)
+- [클라우드 시큐리티 과정 7기 - 6주차 Cloudflare 및 github 보안](https://twodragon.tistory.com/684)
+
+더 많은 블로그 포스트는 [Twodragon 블로그](https://twodragon.tistory.com)에서 확인하실 수 있습니다.
+
 ---
 
 **작성자**: [Twodragon](https://twodragon.tistory.com)  

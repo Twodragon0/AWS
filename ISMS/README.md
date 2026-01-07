@@ -255,9 +255,314 @@ graph LR
 4. **인증 심사**: 외부 심사원에 의해 ISMS-P 인증 심사를 받습니다.
 5. **지속적인 모니터링**: 주기적으로 보안 체계를 점검하고 새로운 취약점에 대해 대응합니다.
 
+## AWS 자산 수집 스크립트 사용법
+
+이 디렉토리에는 ISMS-P 인증을 위한 AWS 자산 정보를 자동으로 수집하는 Python 스크립트들이 포함되어 있습니다.
+
+### 사전 요구 사항
+
+1. **Python 3.9 이상**
+2. **AWS 자격 증명 설정**
+   - AWS CLI 설정 (`aws configure`)
+   - 또는 환경 변수 (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
+   - 또는 IAM 역할 (EC2/Lambda에서 실행 시)
+
+3. **의존성 설치**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+### 환경 변수 설정
+
+스크립트 실행 전 다음 환경 변수를 설정할 수 있습니다:
+
+```bash
+# AWS 설정
+export AWS_REGION=ap-northeast-2
+export AWS_PROFILE=your-profile-name  # 선택적
+
+# 출력 설정
+export ISMS_OUTPUT_DIR=./output
+export ISMS_OUTPUT_FORMAT=csv  # csv, xlsx, json
+
+# 로깅 설정
+export ISMS_LOG_LEVEL=INFO  # DEBUG, INFO, WARNING, ERROR
+export ISMS_LOG_FILE=./logs/isms.log  # 선택적
+
+# Google Drive 설정 (ec2_s3_drive.py용, 선택적)
+export GOOGLE_SERVICE_ACCOUNT_FILE=/path/to/service-account.json
+```
+
+### 사용 가능한 스크립트
+
+#### 1. `aws_info.py` - 전체 AWS 자산 정보 수집
+
+모든 AWS 서비스의 자산 정보를 Excel 파일로 수집합니다.
+
+```bash
+python aws_info.py
+```
+
+**수집 항목:**
+- EC2 인스턴스
+- S3 버킷
+- ECR 리포지토리
+- IAM 역할 및 정책
+- Route 53 호스티드 존 및 레코드
+- RDS 인스턴스
+- CloudFront 배포
+- Lambda 함수
+
+**출력:** `aws_assets_isms_p_YYYYMMDD_HHMMSS.xlsx`
+
+#### 2. `ec2_info.py` - EC2 인스턴스 정보 수집
+
+```bash
+python ec2_info.py
+```
+
+**출력:** `ec2_info_YYYYMMDD_HHMMSS.csv`
+
+#### 3. `s3_info.py` - S3 버킷 정보 수집
+
+```bash
+python s3_info.py
+```
+
+**출력:** `s3_buckets_info_YYYYMMDD_HHMMSS.csv`
+
+#### 4. `s3_script.py` - S3 버킷 보안 설정 점검
+
+S3 버킷의 보안 설정을 상세히 점검합니다.
+
+```bash
+python s3_script.py
+```
+
+**점검 항목:**
+- 버킷 암호화
+- 버킷 로깅
+- ACL 설정
+- 버킷 정책
+- 퍼블릭 액세스 차단
+- 암호화 규칙
+
+**출력:** `s3_bucket_info_YYYYMMDD_HHMMSS.csv`
+
+#### 5. `Lambda_info.py` - Lambda 함수 정보 수집
+
+```bash
+python Lambda_info.py
+```
+
+**출력:** `aws_lambda_inventory_YYYYMMDD_HHMMSS.csv`
+
+#### 6. `route53_info.py` - Route 53 레코드 정보 수집
+
+```bash
+python route53_info.py
+```
+
+**출력:** `route53_records_YYYYMMDD_HHMMSS.csv`
+
+#### 7. `ec2_eni.py` - EC2 네트워크 인터페이스 정보 수집
+
+```bash
+python ec2_eni.py
+```
+
+**출력:** `instance_details_YYYYMMDD_HHMMSS.csv`
+
+#### 8. `eks_info.py` - EKS 클러스터 노드 정보 수집
+
+**주의:** Kubernetes 클러스터 접근 권한이 필요합니다.
+
+```bash
+# Kubernetes 클라이언트 설치
+pip install kubernetes
+
+# kubeconfig 설정
+export KUBECONFIG=~/.kube/config
+
+python eks_info.py
+```
+
+**출력:** `eks_nodes_info_YYYYMMDD_HHMMSS.csv`
+
+#### 9. `ec2_s3_drive.py` - Google Drive 업로드
+
+EC2 및 S3 정보를 수집하여 Google Drive에 업로드합니다.
+
+```bash
+# Google Drive API 라이브러리 설치
+pip install gspread oauth2client
+
+# 서비스 계정 파일 설정
+export GOOGLE_SERVICE_ACCOUNT_FILE=/path/to/service-account.json
+
+python ec2_s3_drive.py
+```
+
+**출력:**
+- 로컬: `aws_assets_isms_p_YYYYMMDD_HHMMSS.xlsx`
+- Google Drive: 자동 생성된 스프레드시트
+
+### 스크립트 구조
+
+```
+ISMS/
+├── utils/              # 공통 유틸리티 모듈
+│   ├── __init__.py
+│   ├── aws_clients.py  # AWS 클라이언트 관리
+│   ├── config.py       # 설정 관리
+│   ├── logger.py       # 로깅 유틸리티
+│   ├── exporters.py    # 데이터 내보내기
+│   └── exceptions.py   # 커스텀 예외
+├── aws_info.py         # 전체 자산 수집
+├── ec2_info.py         # EC2 정보 수집
+├── s3_info.py          # S3 정보 수집
+├── s3_script.py        # S3 보안 점검
+├── Lambda_info.py      # Lambda 정보 수집
+├── route53_info.py     # Route 53 정보 수집
+├── ec2_eni.py          # EC2 ENI 정보 수집
+├── eks_info.py         # EKS 정보 수집
+├── ec2_s3_drive.py     # Google Drive 업로드
+├── requirements.txt    # 의존성 목록
+└── README.md           # 이 파일
+```
+
+## 보안 가이드
+
+### 자격 증명 관리
+
+1. **절대 하드코딩 금지**
+   - AWS 자격 증명을 코드에 직접 작성하지 마세요
+   - 환경 변수 또는 AWS IAM 역할 사용
+
+2. **최소 권한 원칙**
+   - 스크립트 실행에 필요한 최소한의 권한만 부여
+   - 필요한 권한:
+     - `ec2:DescribeInstances`
+     - `s3:ListBuckets`, `s3:GetBucket*`
+     - `iam:ListRoles`, `iam:GetRolePolicy`, `iam:GetPolicy`
+     - `route53:ListHostedZones`, `route53:ListResourceRecordSets`
+     - `rds:DescribeDBInstances`
+     - `cloudfront:ListDistributions`
+     - `lambda:ListFunctions`
+     - `ecr:DescribeRepositories`
+
+3. **자격 증명 로테이션**
+   - 정기적으로 AWS 자격 증명을 로테이션하세요
+   - IAM 사용자 대신 역할 사용 권장
+
+### 출력 파일 보안
+
+1. **민감 정보 포함 주의**
+   - 수집된 데이터에는 IAM 정책, 버킷 정책 등 민감한 정보가 포함될 수 있습니다
+   - 출력 파일을 안전하게 보관하고 접근을 제한하세요
+
+2. **파일 권한 설정**
+   ```bash
+   chmod 600 output/*.csv
+   chmod 600 output/*.xlsx
+   ```
+
+3. **저장 위치**
+   - 출력 파일을 버전 관리 시스템에 커밋하지 마세요
+   - `.gitignore`에 출력 디렉토리 추가:
+     ```
+     output/
+     *.csv
+     *.xlsx
+     logs/
+     ```
+
+### 로깅 보안
+
+1. **로그 파일 보안**
+   - 로그 파일에 민감한 정보가 기록되지 않도록 주의
+   - 로그 파일 접근 권한 제한
+
+2. **CloudWatch Logs 통합** (선택적)
+   - 프로덕션 환경에서는 CloudWatch Logs 사용 권장
+   - 로그 암호화 및 보존 정책 설정
+
+### 네트워크 보안
+
+1. **VPC 엔드포인트 사용** (선택적)
+   - 인터넷을 통하지 않고 AWS 서비스에 접근
+   - VPC 내에서 실행 시 VPC 엔드포인트 구성 권장
+
+2. **프록시 설정** (필요 시)
+   - 기업 네트워크에서 실행 시 프록시 설정 가능
+   ```bash
+   export HTTP_PROXY=http://proxy.example.com:8080
+   export HTTPS_PROXY=http://proxy.example.com:8080
+   ```
+
+## 문제 해결
+
+### 일반적인 오류
+
+1. **AWS 연결 실패**
+   ```
+   Error: AWS 연결 실패. 자격 증명을 확인하세요.
+   ```
+   - 해결: `aws configure` 실행 또는 환경 변수 확인
+
+2. **권한 부족**
+   ```
+   ClientError: An error occurred (AccessDenied) when calling the DescribeInstances operation
+   ```
+   - 해결: IAM 정책에서 필요한 권한 추가
+
+3. **모듈 없음**
+   ```
+   ImportError: No module named 'pandas'
+   ```
+   - 해결: `pip install -r requirements.txt` 실행
+
+### 디버깅
+
+로깅 레벨을 DEBUG로 설정하여 상세한 정보 확인:
+
+```bash
+export ISMS_LOG_LEVEL=DEBUG
+python aws_info.py
+```
+
+## 자동화
+
+### Cron 작업 설정
+
+정기적으로 자산 정보를 수집하려면 cron 작업을 설정하세요:
+
+```bash
+# 매일 오전 9시에 실행
+0 9 * * * cd /path/to/ISMS && /usr/bin/python3 aws_info.py >> /var/log/isms.log 2>&1
+```
+
+### Lambda 함수로 실행
+
+스크립트를 Lambda 함수로 변환하여 정기적으로 실행할 수 있습니다. `examples/automated-audit.tf`를 참조하세요.
+
 ## 결론
 
 **ISMS-P 인증**을 통해 조직은 정보자산의 보안성을 강화하고, 개인정보 보호를 위한 법적 요구사항을 충족할 수 있습니다. 이 문서의 가이드라인을 따름으로써 조직은 정보보호 관리체계를 구축하고 ISMS-P 인증을 효율적으로 준비할 수 있습니다.
 
+이 스크립트들을 사용하여 AWS 자산 정보를 자동으로 수집하고, ISMS-P 인증 준비에 활용하세요.
+
 ## 라이선스
 이 프로젝트는 MIT 라이선스 하에 제공됩니다.
+
+---
+
+## 📝 관련 블로그 포스트
+
+이 프로젝트와 관련된 블로그 포스트를 참고하세요:
+
+- [클라우드 시큐리티 8기 4주차: 통합 보안 취약점 점검 및 ISMS-P 인증 대응 실무](https://twodragon.tistory.com/705)
+- [클라우드 시큐리티 8기 3주차: AWS FinOps 아키텍처부터 ISMS-P 보안 감사까지 완벽 공략!](https://twodragon.tistory.com/703)
+- [클라우드 보안 과정 7기 - 4주차 AWS 취약점 점검 및 ISMS 대응 가이드](https://twodragon.tistory.com/682)
+
+더 많은 블로그 포스트는 [Twodragon 블로그](https://twodragon.tistory.com)에서 확인하실 수 있습니다.
