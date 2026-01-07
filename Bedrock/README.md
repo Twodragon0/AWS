@@ -1,26 +1,557 @@
-# Amazon Bedrock Knowledge Base Slack Chat Bot
+# Amazon Bedrock Knowledge Base Slack Bot
 
-This project deploys a Slack ChatBot integration to a managed RAG service provided by Amazon Bedrock Knowledge base. All resources are deployed and managed using the AWS Cloud Development Kit (CDK). In this solution, an AWS API Gateway and AWS Lambda provide an interface to an Amazon Bedrock Knowledge base consisting of a vector database using AWS Opensearch serverless (AOSS) and an AOSS index via a custom resource. 
+> Amazon Bedrock Knowledge Base를 활용한 Slack 챗봇
 
-The Slack integration is provided through the [Slack Bolt Library for Python](https://slack.dev/bolt-python/) running in the Request Processor Lambda function. The Slack Bolt Library handles authentication and permissions to the Slack application. Slack Bolt provides a [dedicated user guide](https://slack.dev/bolt-js/deployments/aws-lambda/) to deploy and run the library in a Lambda function.
+이 프로젝트는 Amazon Bedrock Knowledge Base와 Slack을 통합하여 RAG(Retrieval-Augmented Generation) 기반 AI 챗봇을 구축합니다. AWS Well-Architected Framework 문서를 Knowledge Base로 활용하여 AWS 아키텍처 및 보안 모범 사례에 대한 질문에 답변합니다.
 
-![Slack AWS Architecture](images/slack-aws-architecture.png)
+**참고**: 이 프로젝트는 [GitHub 저장소](https://github.com/Twodragon0/amazon-bedrock-knowledgebase-slackbot)와 [블로그 포스트](https://twodragon.tistory.com/673)를 기반으로 합니다.
 
-A detailed guide to deploy the project and the Slack App are given in the AWS blog: [Create a generative AI assistant with Slack and Amazon Bedrock](https://aws.amazon.com/blogs/machine-learning/create-a-generative-ai-assistant-with-slack-and-amazon-bedrock/).
+## 📋 목차
 
-In this example, the Bedrock Knowledge base is populated with all of the public documentation of the [AWS Well-Architected Framework](https://docs.aws.amazon.com/wellarchitected/latest/framework/welcome.html). The SlackBot has been given a Slash Command function /ask-aws where users are able to ask any AWS design, architecture, security and other best practice related questions.
+- [개요](#개요)
+- [아키텍처](#아키텍처)
+- [주요 기능](#주요-기능)
+- [사전 요구 사항](#사전-요구-사항)
+- [배포 방법](#배포-방법)
+- [사용 방법](#사용-방법)
+- [보안 고려사항](#보안-고려사항)
+- [강의 연계](#강의-연계)
 
-# Giving Feedback and Contributions
+## 🎯 개요
 
-* [Contributions Guidelines](https://github.com/aws-samples/amazon-bedrock-knowledgebase-slackbot/blob/main/CONTRIBUTING.md)
-    Submit Issues, Feature Requests or Bugs
+Amazon Bedrock Knowledge Base는 RAG(Retrieval-Augmented Generation) 기능을 제공하여 대규모 문서 세트에서 정확한 답변을 생성할 수 있습니다. 이 프로젝트는 다음과 같은 기능을 제공합니다:
 
-# Code of Conduct
-This project has adopted the [Amazon Open Source Code of Conduct](https://aws.github.io/code-of-conduct). For more information see the [Code of Conduct FAQ](https://aws.github.io/code-of-conduct-faq) or contact opensource-codeofconduct@amazon.com with any additional questions or comments.
+- **Slack 통합**: Slack Bolt for Python을 사용한 Slack 앱 통합
+- **Knowledge Base**: AWS Well-Architected Framework 문서를 Knowledge Base로 활용
+- **OpenSearch Serverless**: 벡터 데이터베이스로 OpenSearch Serverless 사용
+- **Lambda 기반**: 서버리스 아키텍처로 Lambda 함수 사용
 
-# Security
+### 사용 사례
 
-See [Security Issue Notifications](https://github.com/aws-samples/amazon-bedrock-knowledgebase-slackbot/blob/main/CONTRIBUTING.md#security-issue-notifications) for more information.
+- AWS 아키텍처 모범 사례 질문
+- 보안 가이드라인 조회
+- 운영 우수 사례 확인
+- 비용 최적화 전략 문의
 
-# License
-This library is licensed under the MIT-0 License. See the [LICENSE](https://github.com/aws-samples/amazon-bedrock-knowledgebase-slackbot/blob/main/LICENSE) file.
+## 🏗️ 아키텍처
+
+### 전체 시스템 아키텍처
+
+```mermaid
+graph TB
+    subgraph "Slack"
+        SlackUser[Slack 사용자]
+        SlackApp[Slack App]
+    end
+    
+    subgraph "AWS API Gateway"
+        APIGateway[API Gateway<br/>REST API]
+    end
+    
+    subgraph "Lambda Functions"
+        RequestProcessor[Request Processor Lambda<br/>Slack Bolt]
+        CreateIndex[Create Index Lambda<br/>Knowledge Base 초기화]
+    end
+    
+    subgraph "Amazon Bedrock"
+        BedrockKB[Bedrock Knowledge Base]
+        BedrockModel[Bedrock Foundation Model<br/>Claude, Titan 등]
+    end
+    
+    subgraph "Vector Database"
+        OpenSearch[OpenSearch Serverless<br/>AOSS]
+        Index[AOSS Index]
+    end
+    
+    subgraph "Storage"
+        S3[S3 Bucket<br/>문서 저장]
+    end
+    
+    subgraph "Security"
+        SecretsManager[Secrets Manager<br/>Slack Signing Secret]
+        KMS[KMS<br/>암호화]
+    end
+    
+    SlackUser -->|슬래시 명령어| SlackApp
+    SlackApp -->|HTTP POST| APIGateway
+    APIGateway --> RequestProcessor
+    RequestProcessor --> SecretsManager
+    RequestProcessor --> BedrockKB
+    BedrockKB --> OpenSearch
+    OpenSearch --> Index
+    BedrockKB --> BedrockModel
+    BedrockKB --> S3
+    CreateIndex --> OpenSearch
+    CreateIndex --> S3
+    
+    RequestProcessor -.->|암호화| KMS
+    BedrockKB -.->|암호화| KMS
+    
+    style SlackApp fill:#4A154B
+    style BedrockKB fill:#232F3E
+    style OpenSearch fill:#005571
+    style RequestProcessor fill:#FF9900
+```
+
+### RAG 프로세스 흐름
+
+```mermaid
+sequenceDiagram
+    participant User as Slack 사용자
+    participant Slack as Slack App
+    participant API as API Gateway
+    participant Lambda as Request Processor
+    participant KB as Bedrock KB
+    participant AOSS as OpenSearch
+    participant Model as Bedrock Model
+    
+    User->>Slack: /ask-aws 질문 입력
+    Slack->>API: HTTP POST 요청
+    API->>Lambda: 이벤트 전달
+    Lambda->>Lambda: Slack 서명 검증
+    Lambda->>KB: 질문 전달
+    KB->>AOSS: 벡터 검색
+    AOSS-->>KB: 관련 문서 반환
+    KB->>Model: 컨텍스트 + 질문
+    Model-->>KB: 답변 생성
+    KB-->>Lambda: 최종 답변
+    Lambda-->>API: JSON 응답
+    API-->>Slack: 메시지 전송
+    Slack-->>User: 답변 표시
+```
+
+### Python 코드로 본 Bedrock 구조
+
+```python
+"""
+Amazon Bedrock Knowledge Base Slack Bot 구조
+"""
+import boto3
+import json
+import os
+from typing import Dict, Optional
+from slack_bolt import App
+from slack_bolt.adapter.aws_lambda import SlackRequestHandler
+
+class BedrockKnowledgeBase:
+    """Bedrock Knowledge Base 클래스"""
+    
+    def __init__(self):
+        self.bedrock_runtime = boto3.client('bedrock-runtime', region_name='us-east-1')
+        self.bedrock_agent = boto3.client('bedrock-agent', region_name='us-east-1')
+        self.knowledge_base_id = os.environ.get('KNOWLEDGE_BASE_ID')
+        self.model_id = os.environ.get('MODEL_ID', 'anthropic.claude-v2')
+    
+    def retrieve_and_generate(
+        self,
+        query: str,
+        retrieval_config: Optional[Dict] = None
+    ) -> Dict:
+        """RAG: 검색 및 생성"""
+        # Knowledge Base 검색
+        retrieval_config = retrieval_config or {
+            'vectorSearchConfiguration': {
+                'numberOfResults': 5,
+                'overrideSearchType': 'HYBRID'
+            }
+        }
+        
+        # Retrieve API 호출
+        retrieve_response = self.bedrock_agent.retrieve(
+            knowledgeBaseId=self.knowledge_base_id,
+            retrievalQuery={
+                'text': query
+            },
+            retrievalConfiguration=retrieval_config
+        )
+        
+        # 검색된 문서 추출
+        retrieved_documents = retrieve_response.get('retrievalResults', [])
+        
+        # 컨텍스트 구성
+        context = self._build_context(retrieved_documents)
+        
+        # 생성 프롬프트 구성
+        prompt = self._build_prompt(query, context)
+        
+        # Bedrock 모델 호출
+        response = self.bedrock_runtime.invoke_model(
+            modelId=self.model_id,
+            body=json.dumps({
+                'anthropic_version': 'bedrock-2023-05-31',
+                'max_tokens': 1024,
+                'messages': [
+                    {
+                        'role': 'user',
+                        'content': prompt
+                    }
+                ]
+            })
+        )
+        
+        response_body = json.loads(response['body'].read())
+        answer = response_body['content'][0]['text']
+        
+        return {
+            'answer': answer,
+            'sources': [doc.get('location', {}) for doc in retrieved_documents]
+        }
+    
+    def _build_context(self, documents: list) -> str:
+        """검색된 문서로 컨텍스트 구성"""
+        context_parts = []
+        for doc in documents:
+            content = doc.get('content', {}).get('text', '')
+            score = doc.get('score', 0)
+            context_parts.append(f"[Relevance: {score:.2f}]\n{content}")
+        return "\n\n---\n\n".join(context_parts)
+    
+    def _build_prompt(self, query: str, context: str) -> str:
+        """프롬프트 구성"""
+        return f"""You are an AWS architecture expert assistant. Answer the question based on the provided context from AWS Well-Architected Framework documentation.
+
+Context:
+{context}
+
+Question: {query}
+
+Instructions:
+- Provide accurate and helpful answers based on the context
+- If the answer is not in the context, say so
+- Include relevant AWS best practices
+- Format your response in a clear and readable way
+
+Answer:"""
+
+class SlackBotHandler:
+    """Slack Bot 핸들러"""
+    
+    def __init__(self):
+        self.app = App(
+            token=os.environ.get('SLACK_BOT_TOKEN'),
+            signing_secret=self._get_signing_secret()
+        )
+        self.bedrock_kb = BedrockKnowledgeBase()
+        self._setup_commands()
+    
+    def _get_signing_secret(self) -> str:
+        """Secrets Manager에서 Signing Secret 가져오기"""
+        secrets_client = boto3.client('secretsmanager')
+        secret_name = os.environ.get('SLACK_SIGNING_SECRET_NAME')
+        
+        try:
+            response = secrets_client.get_secret_value(SecretId=secret_name)
+            return response['SecretString']
+        except Exception as e:
+            print(f"Error retrieving secret: {e}")
+            raise
+    
+    def _setup_commands(self):
+        """Slack 명령어 설정"""
+        @self.app.command("/ask-aws")
+        def handle_ask_aws(ack, respond, command):
+            """/ask-aws 슬래시 명령어 처리"""
+            ack()
+            
+            query = command.get('text', '')
+            if not query:
+                respond("Please provide a question. Usage: /ask-aws <your question>")
+                return
+            
+            try:
+                # Bedrock Knowledge Base에서 답변 검색
+                result = self.bedrock_kb.retrieve_and_generate(query)
+                
+                # Slack 메시지 포맷팅
+                message = self._format_response(result['answer'], result['sources'])
+                respond(message)
+            except Exception as e:
+                respond(f"Error: {str(e)}")
+    
+    def _format_response(self, answer: str, sources: list) -> str:
+        """응답 포맷팅"""
+        message = f"*Answer:*\n{answer}\n\n"
+        
+        if sources:
+            message += "*Sources:*\n"
+            for i, source in enumerate(sources[:3], 1):  # 상위 3개만 표시
+                s3_uri = source.get('s3Location', {}).get('uri', 'N/A')
+                message += f"{i}. {s3_uri}\n"
+        
+        return message
+    
+    def get_handler(self):
+        """Lambda 핸들러 반환"""
+        handler = SlackRequestHandler(app=self.app)
+        return handler
+
+# Lambda 핸들러
+def lambda_handler(event, context):
+    """Lambda 진입점"""
+    bot_handler = SlackBotHandler()
+    handler = bot_handler.get_handler()
+    return handler.handle(event, context)
+
+# Knowledge Base 초기화 Lambda
+def create_index_handler(event, context):
+    """Knowledge Base 인덱스 생성"""
+    bedrock_agent = boto3.client('bedrock-agent', region_name='us-east-1')
+    knowledge_base_id = os.environ.get('KNOWLEDGE_BASE_ID')
+    
+    # S3에서 문서 동기화
+    response = bedrock_agent.start_ingestion_job(
+        knowledgeBaseId=knowledge_base_id,
+        dataSourceId=os.environ.get('DATA_SOURCE_ID')
+    )
+    
+    return {
+        'statusCode': 200,
+        'body': json.dumps({
+            'ingestionJobId': response['ingestionJobId'],
+            'status': 'STARTED'
+        })
+    }
+```
+
+## 🚀 주요 기능
+
+### 1. RAG (Retrieval-Augmented Generation)
+- 벡터 검색을 통한 관련 문서 검색
+- 검색된 문서를 컨텍스트로 활용한 정확한 답변 생성
+- 하이브리드 검색 (키워드 + 벡터)
+
+### 2. Slack 통합
+- 슬래시 명령어 `/ask-aws` 지원
+- Slack Bolt for Python 사용
+- 서명 검증을 통한 보안 강화
+
+### 3. Knowledge Base 관리
+- AWS Well-Architected Framework 문서 자동 인덱싱
+- S3 기반 문서 저장
+- OpenSearch Serverless 벡터 데이터베이스
+
+### 4. 서버리스 아키텍처
+- Lambda 함수 기반
+- API Gateway를 통한 HTTP 엔드포인트
+- 자동 스케일링
+
+## 📋 사전 요구 사항
+
+### 필수 도구
+- **Node.js**: 버전 18 이상
+- **npm**: Node.js와 함께 설치
+- **AWS CDK**: `npm install -g aws-cdk`로 설치
+- **Python**: 버전 3.9 이상
+- **AWS CLI**: v2 이상 설치 및 구성
+
+### AWS 서비스 요구사항
+- **Bedrock 모델 접근**: Claude 또는 Titan 모델 접근 권한
+- **OpenSearch Serverless**: 벡터 데이터베이스 생성 권한
+- **S3**: 문서 저장 버킷
+- **Secrets Manager**: Slack Signing Secret 저장
+
+### Slack 앱 설정
+1. [Slack API](https://api.slack.com/apps)에서 새 앱 생성
+2. Slash Commands 추가 (`/ask-aws`)
+3. Signing Secret 복사
+4. OAuth 토큰 생성
+
+## 🚀 배포 방법
+
+### 1. 저장소 클론
+
+```bash
+git clone https://github.com/Twodragon0/amazon-bedrock-knowledgebase-slackbot.git
+cd Bedrock
+```
+
+### 2. 환경 변수 설정
+
+```bash
+# .env 파일 생성
+cat > .env << EOF
+KNOWLEDGE_BASE_ID=your-knowledge-base-id
+MODEL_ID=anthropic.claude-v2
+SLACK_BOT_TOKEN=xoxb-your-token
+SLACK_SIGNING_SECRET_NAME=slack-signing-secret
+DATA_SOURCE_ID=your-data-source-id
+EOF
+```
+
+### 3. CDK 배포
+
+```bash
+# 의존성 설치
+npm install
+
+# CDK 부트스트랩 (최초 1회)
+npx cdk bootstrap
+
+# 배포
+npm run build
+cdk deploy --all
+```
+
+### 4. Knowledge Base 초기화
+
+```bash
+# Knowledge Base에 문서 로드
+./scripts/load-kb.sh
+```
+
+## 💻 사용 방법
+
+### 1. Slack에서 사용
+
+```
+/ask-aws What are the security best practices for VPC?
+```
+
+### 2. 응답 예시
+
+```
+Answer:
+Based on AWS Well-Architected Framework, VPC security best practices include:
+- Use security groups with least privilege
+- Implement network ACLs for additional layer
+- Enable VPC Flow Logs for monitoring
+- Use VPC Endpoints for private AWS service access
+
+Sources:
+1. s3://well-architected-framework/security-pillar/vpc-security.md
+2. s3://well-architected-framework/operational-excellence/vpc-monitoring.md
+```
+
+### 3. API 직접 호출
+
+```bash
+curl -X POST https://your-api-gateway-url/slack/events \
+  -H "Content-Type: application/json" \
+  -d '{
+    "command": "/ask-aws",
+    "text": "What is the Well-Architected Framework?",
+    "response_url": "https://hooks.slack.com/commands/..."
+  }'
+```
+
+## 🔒 보안 고려사항
+
+### 1. Secrets 관리
+
+```mermaid
+graph LR
+    A[Slack Signing Secret] --> B[Secrets Manager]
+    B --> C[Lambda 환경 변수]
+    C --> D[KMS 암호화]
+    
+    E[Slack Bot Token] --> B
+    
+    style B fill:#e1f5ff
+    style D fill:#fff4e1
+```
+
+- Secrets Manager를 통한 시크릿 저장
+- KMS를 통한 암호화
+- IAM 역할을 통한 최소 권한 접근
+
+### 2. API 보안
+
+- Slack 서명 검증 필수
+- API Gateway 인증 및 권한 부여
+- VPC 엔드포인트를 통한 프라이빗 연결
+
+### 3. 데이터 보안
+
+- OpenSearch Serverless 암호화
+- S3 버킷 암호화
+- CloudTrail을 통한 API 로깅
+
+## 📚 강의 연계
+
+이 프로젝트는 [Twodragon의 클라우드 시큐리티 강의](https://twodragon.tistory.com/category/*%20Twodragon/보안%20강의%20%28Course%29)와 연계되어 있으며, 상세한 구현 가이드는 [블로그 포스트](https://twodragon.tistory.com/673)에서 확인할 수 있습니다.
+
+### 블로그 포스트 내용
+
+[Amazon Bedrock Knowledge Base를 활용한 Slack 챗봇 구축](https://twodragon.tistory.com/673) 블로그에서는 다음을 다룹니다:
+
+- Bedrock Knowledge Base 설정
+- OpenSearch Serverless 구성
+- Slack 앱 통합
+- Lambda 함수 구현
+- 배포 및 테스트
+
+### 강의 연계
+
+- **AI 보안**: Bedrock 모델 접근 제어
+- **서버리스 보안**: Lambda 함수 보안 모범 사례
+- **데이터 보안**: 벡터 데이터베이스 암호화
+- **API 보안**: API Gateway 및 Slack 통합 보안
+
+## 🐛 문제 해결
+
+### 1. "Invalid Signature" 오류
+
+**증상**: Slack에서 서명 검증 실패
+
+**해결 방법**:
+- Secrets Manager의 Signing Secret 확인
+- Lambda 환경 변수 확인
+- Slack 앱 설정에서 Signing Secret 재확인
+
+### 2. "Knowledge Base Not Found" 오류
+
+**증상**: Lambda에서 Knowledge Base를 찾을 수 없음
+
+**해결 방법**:
+- Knowledge Base ID 확인
+- IAM 역할 권한 확인
+- Bedrock 서비스 활성화 확인
+
+### 3. "Access Denied" 오류
+
+**증상**: Bedrock 또는 OpenSearch 접근 거부
+
+**해결 방법**:
+- IAM 역할 권한 확인
+- Bedrock 모델 접근 권한 확인
+- OpenSearch Serverless 접근 정책 확인
+
+### 4. 응답 지연
+
+**증상**: 챗봇 응답이 느림
+
+**해결 방법**:
+- Lambda 메모리 크기 증가
+- OpenSearch Serverless 성능 확인
+- Bedrock API 지연 시간 모니터링
+
+## 📖 참고 자료
+
+- [GitHub 저장소](https://github.com/Twodragon0/amazon-bedrock-knowledgebase-slackbot) - 소스 코드
+- [블로그 포스트](https://twodragon.tistory.com/673) - 상세 구현 가이드
+- [AWS 블로그](https://aws.amazon.com/blogs/machine-learning/create-a-generative-ai-assistant-with-slack-and-amazon-bedrock/) - 원본 AWS 블로그
+- [Amazon Bedrock 문서](https://docs.aws.amazon.com/bedrock/)
+- [Slack Bolt for Python](https://slack.dev/bolt-python/)
+- [AWS Well-Architected Framework](https://docs.aws.amazon.com/wellarchitected/latest/framework/welcome.html)
+
+## 🤝 기여
+
+기여를 환영합니다! 자세한 내용은 [CONTRIBUTING.md](./CONTRIBUTING.md)를 참조하세요.
+
+## 📄 라이선스
+
+이 프로젝트는 MIT-0 라이선스 하에 제공됩니다. 자세한 내용은 [LICENSE](./LICENSE) 파일을 참조하세요.
+
+## 🙏 감사의 말
+
+- AWS Bedrock 팀 - RAG 기능 제공
+- Slack Bolt 팀 - Python 프레임워크
+- 원작자: Barry Conway, Dean Colcott
+
+---
+
+**작성자**: [Twodragon](https://twodragon.tistory.com)  
+**강의 블로그**: [클라우드 시큐리티 강의](https://twodragon.tistory.com/category/*%20Twodragon/보안%20강의%20%28Course%29)  
+**구현 가이드**: [Amazon Bedrock Knowledge Base Slack Bot](https://twodragon.tistory.com/673)  
+**GitHub 저장소**: [amazon-bedrock-knowledgebase-slackbot](https://github.com/Twodragon0/amazon-bedrock-knowledgebase-slackbot)  
+**마지막 업데이트**: 2025-01-27
