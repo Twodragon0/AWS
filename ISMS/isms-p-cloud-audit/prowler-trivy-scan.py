@@ -11,7 +11,6 @@ ISMS-P 2025 가이드 기반 Prowler & Trivy 통합 보안 스캔 스크립트
 
 import sys
 import subprocess
-import datetime
 import os
 from pathlib import Path
 from typing import Optional, List
@@ -31,7 +30,9 @@ logger = setup_logger('isms.prowler_trivy_scan')
 def run_prowler(
     output_format: str = 'html',
     output_dir: Optional[str] = None,
-    compliance_framework: Optional[str] = None
+    compliance_framework: Optional[str] = None,
+    aws_profile: Optional[str] = None,
+    aws_region: Optional[str] = None
 ) -> Path:
     """
     Prowler AWS 보안 점검 실행
@@ -40,6 +41,8 @@ def run_prowler(
         output_format: 출력 형식 (html, json, csv)
         output_dir: 출력 디렉토리
         compliance_framework: 컴플라이언스 프레임워크 (cis, nist 등)
+        aws_profile: AWS 프로필 이름 (기본값: twodragon)
+        aws_region: AWS 리전 (기본값: ap-northeast-2)
     
     Returns:
         생성된 보고서 파일 경로
@@ -53,6 +56,17 @@ def run_prowler(
     # Prowler 명령어 구성
     cmd = ['prowler', 'aws', '-M', output_format, '-f', str(report_file)]
     
+    # AWS profile 지정 (기본값: twodragon)
+    profile = aws_profile or os.getenv('AWS_PROFILE', 'twodragon')
+    if profile:
+        cmd.extend(['--profile', profile])
+        logger.info(f"AWS Profile 사용: {profile}")
+    
+    # AWS 리전 지정
+    region = aws_region or os.getenv('AWS_REGION', 'ap-northeast-2')
+    if region:
+        cmd.extend(['--region', region])
+    
     if compliance_framework:
         cmd.extend(['-c', compliance_framework])
     
@@ -65,7 +79,8 @@ def run_prowler(
             cmd,
             capture_output=True,
             text=True,
-            timeout=3600  # 1시간 타임아웃
+            timeout=3600,  # 1시간 타임아웃
+            env={**os.environ, 'AWS_PROFILE': profile} if profile else os.environ
         )
         
         if result.returncode == 0:
@@ -228,13 +243,17 @@ def main():
         output_dir = config.output_dir
         
         logger.info("=== ISMS-P 2025 보안 스캔 시작 ===")
+        logger.info(f"AWS Profile: {config.aws_profile}")
+        logger.info(f"AWS Region: {config.aws_region}")
         
         # Prowler 실행 (AWS 보안 점검)
         logger.info("1. Prowler AWS 보안 점검 실행")
         prowler_report = run_prowler(
             output_format='json',
             output_dir=output_dir,
-            compliance_framework='cis'  # CIS 기준 점검
+            compliance_framework='cis',  # CIS 기준 점검
+            aws_profile=config.aws_profile,
+            aws_region=config.aws_region
         )
         logger.info(f"Prowler 보고서: {prowler_report}")
         

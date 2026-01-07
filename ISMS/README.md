@@ -277,9 +277,9 @@ graph LR
 스크립트 실행 전 다음 환경 변수를 설정할 수 있습니다:
 
 ```bash
-# AWS 설정
-export AWS_REGION=ap-northeast-2
-export AWS_PROFILE=your-profile-name  # 선택적
+# AWS 설정 (기본값 사용 시 생략 가능)
+export AWS_REGION=ap-northeast-2  # 기본값
+export AWS_PROFILE=twodragon  # 기본값: twodragon
 
 # 출력 설정
 export ISMS_OUTPUT_DIR=./output
@@ -435,13 +435,24 @@ ISMS/
 
 ### 자격 증명 관리
 
-1. **절대 하드코딩 금지**
-   - AWS 자격 증명을 코드에 직접 작성하지 마세요
-   - 환경 변수 또는 AWS IAM 역할 사용
+1. **AWS SSO 사용 (권장)**
+   - AWS SSO를 통한 중앙화된 인증 관리
+   - 프로필 기반 인증 사용 (기본값: `twodragon`)
+   ```bash
+   # SSO 로그인
+   aws sso login --profile twodragon
+   
+   # 세션 확인
+   aws sts get-caller-identity --profile twodragon
+   ```
 
-2. **최소 권한 원칙**
+2. **절대 하드코딩 금지**
+   - AWS 자격 증명을 코드에 직접 작성하지 마세요
+   - AWS SSO 프로필 또는 환경 변수 사용
+
+3. **최소 권한 원칙**
    - 스크립트 실행에 필요한 최소한의 권한만 부여
-   - 필요한 권한:
+   - SSO 역할에 필요한 권한:
      - `ec2:DescribeInstances`
      - `s3:ListBuckets`, `s3:GetBucket*`
      - `iam:ListRoles`, `iam:GetRolePolicy`, `iam:GetPolicy`
@@ -450,10 +461,11 @@ ISMS/
      - `cloudfront:ListDistributions`
      - `lambda:ListFunctions`
      - `ecr:DescribeRepositories`
+     - `sts:GetCallerIdentity` (인증 확인용)
 
-3. **자격 증명 로테이션**
-   - 정기적으로 AWS 자격 증명을 로테이션하세요
-   - IAM 사용자 대신 역할 사용 권장
+4. **SSO 세션 관리**
+   - SSO 세션은 일반적으로 8-12시간 유효
+   - 세션 만료 시 `aws sso login --profile twodragon` 재실행
 
 ### 출력 파일 보안
 
@@ -545,16 +557,24 @@ ISMS-P 2025 최신 가이드에 따라 Prowler를 활용한 자동화된 자산 
 
 **사용법:**
 ```bash
-# Prowler 설치
+# 1. AWS SSO 로그인 (필수)
+aws sso login --profile twodragon
+
+# 2. Prowler 설치
 pip install prowler
 
-# 통합 자산 식별 및 위험 평가 실행
+# 3. 통합 자산 식별 및 위험 평가 실행
 cd isms-p-cloud-audit
 python prowler_isms_2025.py
 
-# 위험 관리 대시보드 생성
+# 4. 위험 관리 대시보드 생성
 python risk_dashboard.py isms_risk_report_20241201_120000.json
 ```
+
+**AWS SSO 설정:**
+- 기본 프로필: `twodragon`
+- 기본 리전: `ap-northeast-2`
+- 자세한 설정 방법: [`isms-p-cloud-audit/AWS_SSO_SETUP.md`](isms-p-cloud-audit/AWS_SSO_SETUP.md) 참조
 
 **자세한 내용:** [`isms-p-cloud-audit/README.md`](isms-p-cloud-audit/README.md) 참조
 

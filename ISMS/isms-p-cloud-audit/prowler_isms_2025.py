@@ -18,6 +18,7 @@ ISMS-P 2025 가이드 기반 Prowler 자산 식별 및 위험 관리 시스템
 
 import sys
 import json
+import os
 import subprocess
 from pathlib import Path
 from datetime import datetime, timedelta
@@ -172,7 +173,17 @@ class ProwlerISMS2025:
         output_file = self.output_dir / f"prowler_scan_{timestamp}.{output_format}"
         
         # Prowler 명령어 구성
+        # AWS profile 사용 (기본값: twodragon)
         cmd = ['prowler', 'aws', '-M', output_format, '-f', str(output_file)]
+        
+        # AWS profile 지정
+        if self.config.aws_profile:
+            cmd.extend(['--profile', self.config.aws_profile])
+            logger.info(f"AWS Profile 사용: {self.config.aws_profile}")
+        
+        # AWS 리전 지정
+        if self.config.aws_region:
+            cmd.extend(['--region', self.config.aws_region])
         
         # 컴플라이언스 프레임워크 지정
         if compliance_framework:
@@ -193,7 +204,8 @@ class ProwlerISMS2025:
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=3600  # 1시간 타임아웃
+                timeout=3600,  # 1시간 타임아웃
+                env={**os.environ, 'AWS_PROFILE': self.config.aws_profile} if self.config.aws_profile else os.environ
             )
             
             if result.returncode == 0:

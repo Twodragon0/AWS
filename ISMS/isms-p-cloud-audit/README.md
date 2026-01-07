@@ -25,10 +25,14 @@ ISMS-P 2025 가이드에 맞춘 종합적인 자산 식별 및 위험 평가 시
 
 **사용법:**
 ```bash
-# 기본 실행
+# 1. AWS SSO 로그인 (필수)
+aws sso login --profile twodragon
+
+# 2. 기본 실행 (프로필: twodragon, 리전: ap-northeast-2)
 python prowler_isms_2025.py
 
-# 환경 변수 설정
+# 3. 환경 변수로 설정 변경 (선택적)
+export AWS_PROFILE=twodragon
 export AWS_REGION=ap-northeast-2
 export ISMS_OUTPUT_DIR=./output
 python prowler_isms_2025.py
@@ -63,6 +67,10 @@ Prowler와 Trivy를 통합하여 AWS 인프라 및 컨테이너 이미지 보안
 
 **사용법:**
 ```bash
+# 1. AWS SSO 로그인 (필수)
+aws sso login --profile twodragon
+
+# 2. 스캔 실행
 python prowler-trivy-scan.py
 ```
 
@@ -89,26 +97,79 @@ sudo apt-get update
 sudo apt-get install trivy
 ```
 
-### 2. AWS 자격 증명 설정
+### 2. AWS SSO 로그인 및 프로필 설정
+
+이 프로젝트는 **AWS SSO (Single Sign-On)**와 **프로필 기반 인증**을 사용합니다.
+
+#### AWS SSO 설정
 
 ```bash
-# AWS CLI 설정
-aws configure
+# 1. AWS SSO 로그인
+aws sso login --profile twodragon
 
-# 또는 환경 변수
-export AWS_ACCESS_KEY_ID=your-access-key
-export AWS_SECRET_ACCESS_KEY=your-secret-key
-export AWS_REGION=ap-northeast-2
+# 2. 프로필 확인 (~/.aws/config 파일)
+cat ~/.aws/config
+
+# 예시 설정:
+# [profile twodragon]
+# sso_start_url = https://your-sso-portal.awsapps.com/start
+# sso_region = ap-northeast-2
+# sso_account_id = 123456789012
+# sso_role_name = YourRoleName
+# region = ap-northeast-2
+# output = json
 ```
+
+#### 환경 변수 설정 (선택적)
+
+```bash
+# AWS 프로필 설정 (기본값: twodragon)
+export AWS_PROFILE=twodragon
+
+# AWS 리전 설정 (기본값: ap-northeast-2)
+export AWS_REGION=ap-northeast-2
+
+# 출력 디렉토리
+export ISMS_OUTPUT_DIR=./output
+```
+
+**참고:** 
+- 기본 프로필은 `twodragon`으로 설정되어 있습니다
+- 프로필을 변경하려면 `AWS_PROFILE` 환경 변수를 설정하거나 `~/.aws/config`에서 다른 프로필을 사용하세요
+- SSO 세션이 만료되면 `aws sso login --profile twodragon`을 다시 실행하세요
 
 ### 3. 환경 변수 설정
 
 ```bash
+# AWS 설정 (기본값 사용 시 생략 가능)
+export AWS_PROFILE=twodragon  # 기본값: twodragon
+export AWS_REGION=ap-northeast-2  # 기본값: ap-northeast-2
+
 # 출력 디렉토리
 export ISMS_OUTPUT_DIR=./output
 
 # 로깅 레벨
 export ISMS_LOG_LEVEL=INFO
+```
+
+### 4. Prowler 설치 확인
+
+Prowler는 [공식 GitHub 저장소](https://github.com/prowler-cloud/prowler)를 참고하여 설치합니다.
+
+```bash
+# Prowler 설치 확인
+prowler -v
+
+# Prowler 버전 확인 (Python 3.9 이상, 3.13 미만 필요)
+python3 --version
+
+# Prowler 설치 (PyPI)
+pip install prowler
+
+# 또는 GitHub에서 직접 설치
+git clone https://github.com/prowler-cloud/prowler
+cd prowler
+poetry install
 ```
 
 ## ISMS-P 2025 가이드 반영 사항
@@ -247,25 +308,62 @@ python risk_dashboard.py isms_risk_report_20241201_120000.json
 
 ## 문제 해결
 
+### AWS SSO 관련 오류
+
+**"SSO session expired" 오류:**
+```bash
+# 해결: 다시 로그인
+aws sso login --profile twodragon
+```
+
+**"Profile not found" 오류:**
+```bash
+# 해결: ~/.aws/config 파일 확인 및 설정
+cat ~/.aws/config
+
+# 프로필이 없으면 추가
+aws configure sso --profile twodragon
+```
+
+**자세한 내용:** [`AWS_SSO_SETUP.md`](AWS_SSO_SETUP.md) 참조
+
 ### Prowler 설치 오류
 
 ```bash
-# Python 버전 확인 (3.9 이상 필요)
+# Python 버전 확인 (3.9 이상, 3.13 미만 필요)
 python3 --version
 
 # Prowler 재설치
 pip uninstall prowler
 pip install prowler
+
+# Prowler 공식 문서 참고
+# https://github.com/prowler-cloud/prowler
 ```
 
 ### AWS 권한 오류
 
-필요한 IAM 권한:
+필요한 IAM 권한 (SSO 역할에 할당되어 있어야 함):
 - `ec2:DescribeInstances`
 - `s3:ListBuckets`, `s3:GetBucket*`
 - `rds:DescribeDBInstances`
 - `lambda:ListFunctions`
 - `iam:ListRoles`, `iam:GetRolePolicy`
+- `sts:GetCallerIdentity` (인증 확인용)
+
+### Prowler 실행 시 인증 오류
+
+```bash
+# 해결 1: 프로필 명시적으로 지정
+prowler aws --profile twodragon --region ap-northeast-2
+
+# 해결 2: 환경 변수 설정
+export AWS_PROFILE=twodragon
+prowler aws
+
+# 해결 3: SSO 세션 확인
+aws sts get-caller-identity --profile twodragon
+```
 
 ### 메모리 부족 오류
 
@@ -276,6 +374,9 @@ pip install prowler
 ## 참고 자료
 
 - [Prowler 공식 문서](https://docs.prowler.com)
+- [Prowler GitHub 저장소](https://github.com/prowler-cloud/prowler)
+- [AWS SSO 사용자 가이드](https://docs.aws.amazon.com/singlesignon/latest/userguide/what-is.html)
+- [AWS CLI SSO 설정](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sso.html)
 - [ISMS-P 인증 가이드](https://isms.go.kr)
 - [AWS 보안 모범 사례](https://aws.amazon.com/security/best-practices/)
 

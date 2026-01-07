@@ -13,7 +13,7 @@ class Config:
     """ISMS-P 스크립트 설정"""
     # AWS 설정
     aws_region: str = os.getenv('AWS_REGION', 'ap-northeast-2')
-    aws_profile: Optional[str] = os.getenv('AWS_PROFILE', None)
+    aws_profile: Optional[str] = os.getenv('AWS_PROFILE', 'twodragon')  # 기본 프로필: twodragon
     
     # 출력 설정
     output_dir: str = os.getenv('ISMS_OUTPUT_DIR', '.')

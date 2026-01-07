@@ -2,11 +2,24 @@
 
 ## 기본 사용법
 
-### 1. 전체 평가 실행
+### 1. AWS SSO 로그인
+
+**중요:** 모든 스크립트 실행 전에 AWS SSO 로그인이 필요합니다.
 
 ```bash
-# 환경 변수 설정
-export AWS_REGION=ap-northeast-2
+# AWS SSO 로그인 (프로필: twodragon)
+aws sso login --profile twodragon
+
+# 로그인 상태 확인
+aws sts get-caller-identity --profile twodragon
+```
+
+### 2. 전체 평가 실행
+
+```bash
+# 환경 변수 설정 (선택적, 기본값 사용 가능)
+export AWS_PROFILE=twodragon  # 기본값
+export AWS_REGION=ap-northeast-2  # 기본값
 export ISMS_OUTPUT_DIR=./output
 
 # 전체 평가 실행 (자산 식별 + 보안 점검 + 위험 평가)
@@ -35,7 +48,12 @@ python risk_dashboard.py output/isms_risk_report_20241201_120000.json -o dashboa
 from prowler_isms_2025 import ProwlerISMS2025
 from utils.config import Config
 
+# AWS SSO 로그인 필요: aws sso login --profile twodragon
+
 config = Config.from_env()
+# config.aws_profile = 'twodragon'  # 기본값
+# config.aws_region = 'ap-northeast-2'  # 기본값
+
 assessor = ProwlerISMS2025(config)
 
 # EC2와 S3만 점검
@@ -48,10 +66,12 @@ prowler_output = assessor.run_prowler_scan(
 ### 2. 컴플라이언스 프레임워크 지정
 
 ```python
+# AWS SSO 로그인 필요: aws sso login --profile twodragon
+
 # CIS 기준 점검
 prowler_output = assessor.run_prowler_scan(
     output_format='json',
-    compliance_framework='cis'
+    compliance_framework='cis'  # Prowler 공식 문서 참고: https://github.com/prowler-cloud/prowler
 )
 
 # NIST 기준 점검
@@ -128,12 +148,21 @@ jobs:
           pip install -r ISMS/requirements.txt
           pip install prowler
       
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (SSO)
         uses: aws-actions/configure-aws-credentials@v2
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-session-name: GitHubActions
           aws-region: ap-northeast-2
+      
+      # 또는 AWS SSO 프로필 사용
+      - name: Setup AWS SSO
+        run: |
+          aws configure set sso_start_url ${{ secrets.AWS_SSO_START_URL }}
+          aws configure set sso_region ap-northeast-2
+          aws configure set sso_account_id ${{ secrets.AWS_ACCOUNT_ID }}
+          aws configure set sso_role_name ${{ secrets.AWS_ROLE_NAME }}
+          aws sso login --profile twodragon
       
       - name: Run risk assessment
         run: |
