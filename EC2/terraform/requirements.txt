@@ -2,3 +2,4 @@ boto3
 pandas
 openpyxl
 requests
+urllib3>=2.2.0  # SECURITY: Fix CVE-2023-45803, CVE-2024-37891 (Unbounded decompression chain)

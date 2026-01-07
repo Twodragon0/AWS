@@ -6,7 +6,8 @@ import time
 from pip._internal import main
 
 # SECURITY: Use latest urllib3 version to fix vulnerabilities (CVE-2023-45803, CVE-2024-37891)
-main(['install', '-I', '-q','boto3','requests','opensearch-py==2.4.2', 'urllib3>=2.0.0','--target', '/tmp/', '--no-cache-dir', '--disable-pip-version-check'])
+# urllib3>=2.2.0 fixes unbounded decompression chain vulnerability
+main(['install', '-I', '-q','boto3','requests','opensearch-py==2.4.2', 'urllib3>=2.2.0','--target', '/tmp/', '--no-cache-dir', '--disable-pip-version-check'])
 sys.path.insert(0,'/tmp/')
 
 import boto3

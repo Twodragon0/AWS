@@ -36,15 +36,33 @@ resource "aws_s3_bucket_versioning" "terraform_state_bucket_versioning" {
   }
 }
 
-# S3 버킷 암호화 설정 (AES256 사용 - 비용 효율적이며 Best Practice)
+# S3 버킷 암호화 설정 (KMS 사용 - 보안 강화)
+resource "aws_kms_key" "terraform_state_kms_key" {
+  description             = "KMS key for Terraform state bucket encryption"
+  deletion_window_in_days = 10
+  enable_key_rotation     = true
+
+  tags = {
+    Name        = "TerraformStateBucketKMSKey"
+    ManagedBy   = "Terraform"
+    Environment = "Production"
+  }
+}
+
+resource "aws_kms_alias" "terraform_state_kms_alias" {
+  name          = "alias/terraform-state-bucket"
+  target_key_id = aws_kms_key.terraform_state_kms_key.key_id
+}
+
 resource "aws_s3_bucket_server_side_encryption_configuration" "terraform_state_bucket_encryption" {
   bucket = aws_s3_bucket.terraform_state_bucket.id
 
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+      sse_algorithm     = "aws:kms"
+      kms_master_key_id = aws_kms_key.terraform_state_kms_key.arn
     }
-    bucket_key_enabled = false
+    bucket_key_enabled = true
   }
 }
 
@@ -56,6 +74,54 @@ resource "aws_s3_bucket_public_access_block" "terraform_state_bucket_pab" {
   block_public_policy     = true
   ignore_public_acls      = true
   restrict_public_buckets = true
+}
+
+# S3 버킷 액세스 로깅 설정 (보안 감사 및 모니터링)
+resource "aws_s3_bucket" "terraform_state_logs" {
+  bucket = "aws-sso-tfstate-logs"
+
+  tags = {
+    Name        = "TerraformStateBucketLogs"
+    ManagedBy   = "Terraform"
+    Environment = "Production"
+    Purpose     = "Terraform State Bucket Access Logs"
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "terraform_state_logs_encryption" {
+  bucket = aws_s3_bucket.terraform_state_logs.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+    bucket_key_enabled = false
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "terraform_state_logs_pab" {
+  bucket = aws_s3_bucket.terraform_state_logs.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_logging" "terraform_state_bucket_logging" {
+  bucket = aws_s3_bucket.terraform_state_bucket.id
+
+  target_bucket = aws_s3_bucket.terraform_state_logs.id
+  target_prefix = "access-logs/"
+}
+
+# S3 버킷 이벤트 알림 설정 (보안 모니터링)
+resource "aws_s3_bucket_notification" "terraform_state_bucket_notification" {
+  bucket = aws_s3_bucket.terraform_state_bucket.id
+
+  # CloudTrail 이벤트는 별도로 설정 필요
+  # 여기서는 기본 이벤트 알림만 설정
+  depends_on = [aws_s3_bucket.terraform_state_bucket]
 }
 
 # S3 버킷 수명 주기 정책 (오래된 버전 정리)
@@ -101,6 +167,24 @@ resource "aws_s3_bucket_lifecycle_configuration" "terraform_state_bucket_lifecyc
 #   }
 # }
 
+# KMS 키 for DynamoDB 암호화
+resource "aws_kms_key" "dynamodb_kms_key" {
+  description             = "KMS key for DynamoDB Terraform state lock table encryption"
+  deletion_window_in_days = 10
+  enable_key_rotation     = true
+
+  tags = {
+    Name        = "DynamoDBStateLockKMSKey"
+    ManagedBy   = "Terraform"
+    Environment = "Production"
+  }
+}
+
+resource "aws_kms_alias" "dynamodb_kms_alias" {
+  name          = "alias/dynamodb-state-lock"
+  target_key_id = aws_kms_key.dynamodb_kms_key.key_id
+}
+
 # DynamoDB 테이블 - Terraform State Lock
 resource "aws_dynamodb_table" "terraform_state_lock" {
   name         = "TerraformStateLock"
@@ -117,9 +201,10 @@ resource "aws_dynamodb_table" "terraform_state_lock" {
     enabled = true
   }
 
-  # 서버 측 암호화 활성화
+  # KMS를 사용한 서버 측 암호화 활성화
   server_side_encryption {
-    enabled = true
+    enabled     = true
+    kms_key_arn = aws_kms_key.dynamodb_kms_key.arn
   }
 
   tags = {

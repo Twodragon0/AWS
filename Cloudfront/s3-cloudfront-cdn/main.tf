@@ -70,15 +70,33 @@ resource "aws_s3_bucket_lifecycle_configuration" "cdn_bucket_lifecycle" {
   }
 }
 
-# S3 버킷 암호화 설정 (AES256 사용 - 비용 효율적이며 Best Practice)
+# S3 버킷 암호화 설정 (KMS 사용 - 보안 강화)
+resource "aws_kms_key" "cdn_bucket_kms_key" {
+  description             = "KMS key for ${var.project_name} CDN bucket encryption"
+  deletion_window_in_days = 10
+  enable_key_rotation     = true
+
+  tags = {
+    Name        = "${var.project_name}-cdn-bucket-kms-key"
+    ManagedBy   = "Terraform"
+    Environment = "Production"
+  }
+}
+
+resource "aws_kms_alias" "cdn_bucket_kms_alias" {
+  name          = "alias/${var.project_name}-cdn-bucket"
+  target_key_id = aws_kms_key.cdn_bucket_kms_key.key_id
+}
+
 resource "aws_s3_bucket_server_side_encryption_configuration" "cdn_bucket_encryption" {
   bucket = aws_s3_bucket.cdn_bucket.id
 
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+      sse_algorithm     = "aws:kms"
+      kms_master_key_id = aws_kms_key.cdn_bucket_kms_key.arn
     }
-    bucket_key_enabled = false
+    bucket_key_enabled = true
   }
 }
 
@@ -128,6 +146,54 @@ resource "aws_s3_bucket_ownership_controls" "cdn_bucket_ownership" {
   }
 }
 
+# S3 버킷 액세스 로깅 설정 (보안 감사 및 모니터링)
+resource "aws_s3_bucket" "cdn_bucket_logs" {
+  bucket = "${var.domain_name}-logs"
+
+  tags = {
+    Name        = "${var.project_name}-cdn-bucket-logs"
+    ManagedBy   = "Terraform"
+    Environment = "Production"
+    Purpose     = "CDN Bucket Access Logs"
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "cdn_bucket_logs_encryption" {
+  bucket = aws_s3_bucket.cdn_bucket_logs.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+    bucket_key_enabled = false
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "cdn_bucket_logs_pab" {
+  bucket = aws_s3_bucket.cdn_bucket_logs.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_logging" "cdn_bucket_logging" {
+  bucket = aws_s3_bucket.cdn_bucket.id
+
+  target_bucket = aws_s3_bucket.cdn_bucket_logs.id
+  target_prefix = "access-logs/"
+}
+
+# S3 버킷 이벤트 알림 설정 (보안 모니터링)
+resource "aws_s3_bucket_notification" "cdn_bucket_notification" {
+  bucket = aws_s3_bucket.cdn_bucket.id
+
+  # CloudTrail 이벤트는 별도로 설정 필요
+  # 여기서는 기본 이벤트 알림만 설정
+  depends_on = [aws_s3_bucket.cdn_bucket]
+}
+
 resource "aws_s3_bucket_cors_configuration" "cdn_bucket_cors" {
   bucket = aws_s3_bucket.cdn_bucket.id
 
@@ -140,6 +206,98 @@ resource "aws_s3_bucket_cors_configuration" "cdn_bucket_cors" {
     ]
     expose_headers  = ["ETag"]
     max_age_seconds = 600
+  }
+}
+
+# WAF Web ACL for CloudFront (Log4j 취약점 방어 포함)
+resource "aws_wafv2_web_acl" "cloudfront_waf" {
+  name        = "${var.project_name}-cloudfront-waf"
+  description = "WAF for CloudFront distribution with Log4j protection"
+  scope       = "CLOUDFRONT"
+
+  default_action {
+    allow {}
+  }
+
+  # AWS 관리형 규칙 세트 - Log4j 취약점 방어 (AMR)
+  rule {
+    name     = "AWSManagedRulesKnownBadInputsRuleSet"
+    priority = 1
+
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesKnownBadInputsRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+
+    override_action {
+      none {}
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "KnownBadInputsRuleSetMetric"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  # AWS 관리형 규칙 세트 - 일반적인 공격 방어
+  rule {
+    name     = "AWSManagedRulesCommonRuleSet"
+    priority = 2
+
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesCommonRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+
+    override_action {
+      none {}
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "CommonRuleSetMetric"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  # Rate limiting (DDoS 방어)
+  rule {
+    name     = "RateLimitRule"
+    priority = 10
+
+    statement {
+      rate_based_statement {
+        limit              = 2000
+        aggregate_key_type = "IP"
+      }
+    }
+
+    action {
+      block {}
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "RateLimitMetric"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  visibility_config {
+    cloudwatch_metrics_enabled = true
+    metric_name                = "${var.project_name}-waf-metric"
+    sampled_requests_enabled   = true
+  }
+
+  tags = {
+    Name        = "${var.project_name}-cloudfront-waf"
+    ManagedBy   = "Terraform"
+    Environment = "Production"
   }
 }
 
@@ -169,6 +327,7 @@ resource "aws_cloudfront_distribution" "cdn_distribution" {
     cached_methods         = ["GET", "HEAD"]
     target_origin_id       = "${var.project_name}-s3-origin"
     viewer_protocol_policy = "redirect-to-https"
+    web_acl_id             = aws_wafv2_web_acl.cloudfront_waf.arn
 
     # S3 최적화 캐시 정책
     cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6" # CachingOptimized

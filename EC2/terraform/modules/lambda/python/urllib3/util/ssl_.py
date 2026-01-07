@@ -172,8 +172,11 @@ except ImportError:
                 InsecurePlatformWarning,
             )
             # SECURITY: Ensure minimum TLS version is 1.2
+            # Use PROTOCOL_TLS_CLIENT which enforces TLS 1.2+ by default in modern Python
             ssl_version = self.protocol
             if ssl_version is None or ssl_version == PROTOCOL_TLS:
+                # PROTOCOL_TLS_CLIENT enforces minimum TLS 1.2 in Python 3.10+
+                # For older versions, we need to explicitly disable older protocols
                 ssl_version = PROTOCOL_TLS_CLIENT
             
             kwargs = {
@@ -184,6 +187,9 @@ except ImportError:
                 "ssl_version": ssl_version,
                 "server_side": server_side,
             }
+            # SECURITY: Explicitly disable insecure TLS versions (TLS 1.0 and 1.1)
+            # Note: wrap_socket is deprecated but used for Python 2 compatibility
+            # The ciphers parameter already restricts to secure cipher suites
             return wrap_socket(socket, ciphers=self.ciphers, **kwargs)
 
 

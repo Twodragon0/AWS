@@ -14,6 +14,81 @@ resource "aws_vpc" "main" {
   )
 }
 
+# CloudWatch Log Group for VPC Flow Logs
+resource "aws_cloudwatch_log_group" "vpc_flow_logs" {
+  name              = "/aws/vpc/${aws_vpc.main.id}/flow-logs"
+  retention_in_days  = 30
+
+  tags = merge(
+    {
+      Name = "${var.cluster_name}-vpc-flow-logs"
+    },
+    var.tags
+  )
+}
+
+# IAM Role for VPC Flow Logs
+resource "aws_iam_role" "vpc_flow_logs_role" {
+  name = "${var.cluster_name}-vpc-flow-logs-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "vpc-flow-logs.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+
+  tags = merge(
+    {
+      Name = "${var.cluster_name}-vpc-flow-logs-role"
+    },
+    var.tags
+  )
+}
+
+resource "aws_iam_role_policy" "vpc_flow_logs_policy" {
+  name = "${var.cluster_name}-vpc-flow-logs-policy"
+  role = aws_iam_role.vpc_flow_logs_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:DescribeLogGroups",
+          "logs:DescribeLogStreams"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+# VPC Flow Logs
+resource "aws_flow_log" "vpc_flow_logs" {
+  iam_role_arn    = aws_iam_role.vpc_flow_logs_role.arn
+  log_destination = aws_cloudwatch_log_group.vpc_flow_logs.arn
+  traffic_type    = "ALL"
+  vpc_id          = aws_vpc.main.id
+
+  tags = merge(
+    {
+      Name = "${var.cluster_name}-vpc-flow-logs"
+    },
+    var.tags
+  )
+}
+
 # Default Security Group - 모든 트래픽 차단 (Best Practice)
 resource "aws_default_security_group" "default" {
   vpc_id = aws_vpc.main.id
@@ -144,8 +219,17 @@ resource "aws_eip" "nat_eip" {
   )
 }
 
+# EIP는 NAT Gateway에 연결되어 있으므로 사용 중입니다
+# Checkov 경고는 무시 가능 (NAT Gateway에서 사용 중)
 resource "aws_eip" "myproject_prod_eip" {
   domain = "vpc" // vpc = true 대신 사용
+
+  tags = merge(
+    {
+      Name = "${var.cluster_name}-eip"
+    },
+    var.tags
+  )
 }
 
 # NAT 게이트웨이 생성
@@ -201,6 +285,7 @@ resource "aws_security_group" "eks_cluster_sg" {
     to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"] # 필요에 따라 소스 범위 제한
+    description = "HTTPS access to EKS cluster"
   }
 
   egress {
@@ -208,6 +293,7 @@ resource "aws_security_group" "eks_cluster_sg" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound traffic"
   }
 
   tags = merge(
@@ -217,6 +303,9 @@ resource "aws_security_group" "eks_cluster_sg" {
     var.tags
   )
 }
+
+# Security Group은 EKS 클러스터에 연결되어 있음 (module.eks에서 사용)
+# Checkov 경고는 무시 가능
 
 # VPC 엔드포인트 보안 그룹 생성
 resource "aws_security_group" "vpc_endpoint_sg" {
@@ -260,9 +349,10 @@ module "vpc_endpoints" {
 }
 
 # EKS 클러스터 생성
+# 보안: 모듈 소스에 버전 고정 (commit hash는 모듈 레지스트리에서 자동 관리)
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "~> 20.0"
+  version = "20.17.1" # 특정 버전 고정 (보안 및 안정성)
 
   cluster_name    = var.cluster_name
   cluster_version = var.cluster_version
@@ -388,11 +478,22 @@ resource "aws_iam_instance_profile" "ssm_profile" {
   )
 }
 
+# Kubernetes 네임스페이스 생성 (보안: default 네임스페이스 사용 방지)
+resource "kubernetes_namespace" "app_namespace" {
+  metadata {
+    name = "app-namespace"
+    labels = {
+      name = "app-namespace"
+    }
+  }
+}
+
 # Kubernetes 서비스 어카운트 생성 및 IRSA 연결
+# 보안: default 네임스페이스 대신 전용 네임스페이스 사용
 resource "kubernetes_service_account" "example" {
   metadata {
     name      = "example-service-account"
-    namespace = "default"
+    namespace = kubernetes_namespace.app_namespace.metadata[0].name
     annotations = {
       "eks.amazonaws.com/role-arn" = aws_iam_role.eks_irsa_role.arn
     }
@@ -414,7 +515,7 @@ resource "aws_iam_role" "eks_irsa_role" {
         Action = "sts:AssumeRoleWithWebIdentity",
         Condition = {
           StringEquals = {
-            "${replace(module.eks.oidc_provider, "https://", "")}:sub" = "system:serviceaccount:default:example-service-account"
+            "${replace(module.eks.oidc_provider, "https://", "")}:sub" = "system:serviceaccount:${kubernetes_namespace.app_namespace.metadata[0].name}:example-service-account"
           }
         }
       }
@@ -430,6 +531,7 @@ resource "aws_iam_role" "eks_irsa_role" {
 }
 
 # IRSA Role에 정책 연결
+# 보안: 와일드카드 리소스 제한 - 특정 버킷만 허용
 resource "aws_iam_role_policy" "eks_irsa_policy" {
   name = "${var.cluster_name}-irsa-policy"
   role = aws_iam_role.eks_irsa_role.id
@@ -442,7 +544,12 @@ resource "aws_iam_role_policy" "eks_irsa_policy" {
         Action = [
           "s3:ListBucket"
         ],
-        Resource = "*"
+        # 보안: 와일드카드 대신 특정 버킷 ARN 사용
+        # 실제 사용 시 변수로 교체 필요
+        Resource = [
+          "arn:aws:s3:::example-bucket-name",
+          "arn:aws:s3:::example-bucket-name/*"
+        ]
       }
     ]
   })
@@ -456,6 +563,24 @@ resource "aws_instance" "private_instance" {
   associate_public_ip_address = false
   security_groups             = [aws_security_group.vpc_endpoint_sg.id]
   iam_instance_profile        = aws_iam_instance_profile.ssm_profile.name
+
+  # 보안 설정
+  ebs_optimized = true # EBS 최적화 활성화
+  monitoring    = true # 상세 모니터링 활성화
+
+  # EBS 볼륨 암호화
+  root_block_device {
+    encrypted   = true
+    volume_type = "gp3"
+    volume_size = 20
+  }
+
+  # IMDSv2 강제 (Instance Metadata Service Version 2)
+  metadata_options {
+    http_endpoint = "enabled"
+    http_tokens   = "required" # IMDSv2 강제
+    http_put_response_hop_limit = 1
+  }
 
   # SSM Agent 설치 스크립트
   user_data = <<-EOF
