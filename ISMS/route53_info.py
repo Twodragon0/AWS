@@ -1,61 +1,118 @@
-import boto3
-import csv
+"""
+Route 53 호스티드 존 및 레코드 정보 수집 스크립트
+ISMS-P 인증을 위한 Route 53 레코드 목록 생성
 
-# AWS 클라이언트 설정
-route53_client = boto3.client('route53')
+출력 형식: CSV
+"""
 
-def get_hosted_zones():
-    """
-    모든 호스티드 존의 정보를 가져옵니다.
-    """
-    hosted_zones = route53_client.list_hosted_zones()
-    zones_info = [(zone['Id'].split('/')[-1], zone['Name']) for zone in hosted_zones['HostedZones']]
-    return zones_info
+import sys
+from pathlib import Path
+from typing import List, Dict, Any
+from datetime import datetime
 
-def get_records_by_zone(zone_id):
-    """
-    주어진 호스티드 존 ID에 대한 모든 레코드 세트 정보를 가져옵니다.
-    """
-    paginator = route53_client.get_paginator('list_resource_record_sets')
-    page_iterator = paginator.paginate(HostedZoneId=zone_id)
+# 프로젝트 루트를 Python 경로에 추가
+sys.path.insert(0, str(Path(__file__).parent))
 
-    records_info = []
-    for page in page_iterator:
-        for record in page['ResourceRecordSets']:
-            record_values = [value['Value'] for value in record.get('ResourceRecords', [])]
-            alias_target = record.get('AliasTarget', {})
-            record_info = {
-                'Name': record['Name'],
-                'Type': record['Type'],
-                'TTL': record.get('TTL', 'N/A'),
-                'RoutingPolicy': record.get('RoutingPolicy', 'N/A'),
-                'Values': ', '.join(record_values) if record_values else 'N/A',
-                'AliasDNSName': alias_target.get('DNSName', 'N/A'),
-                'AliasHostedZoneId': alias_target.get('HostedZoneId', 'N/A')
-            }
-            records_info.append(record_info)
-    return records_info
+from utils.aws_clients import get_aws_clients
+from utils.config import Config
+from utils.logger import setup_logger
+from utils.exceptions import AssetCollectionError
+from utils.exporters import DataExporter
+from botocore.exceptions import ClientError
 
-def export_records_to_csv(zones_info):
+# 로거 설정
+logger = setup_logger('isms.route53_info')
+
+
+def collect_route53_records(config: Config) -> List[Dict[str, Any]]:
     """
-    호스티드 존 및 해당 레코드 세트 정보를 CSV 파일로 내보냅니다.
+    Route 53 호스티드 존 및 레코드 정보 수집
+    
+    Args:
+        config: 설정 객체
+    
+    Returns:
+        Route 53 레코드 정보 딕셔너리 리스트
     """
-    with open('route53_records.csv', 'w', newline='') as file:
-        writer = csv.DictWriter(file, fieldnames=['HostedZoneId', 'HostedZoneName', 'Name', 'Type', 'TTL', 'RoutingPolicy', 'Values', 'AliasDNSName', 'AliasHostedZoneId'])
-        writer.writeheader()
+    logger.info("Route 53 레코드 정보 수집 중...")
+    
+    clients = get_aws_clients(region=config.aws_region, profile=config.aws_profile)
+    
+    if not clients.test_connection():
+        raise AssetCollectionError("AWS 연결 실패. 자격 증명을 확인하세요.")
+    
+    route53_client = clients.get_client('route53')
+    route53_data = []
+    
+    try:
+        # 호스티드 존 목록
+        hosted_zones = route53_client.list_hosted_zones()
         
-        for zone_id, zone_name in zones_info:
-            records = get_records_by_zone(zone_id)
-            for record in records:
-                record['HostedZoneId'] = zone_id
-                record['HostedZoneName'] = zone_name
-                writer.writerow(record)
+        for zone in hosted_zones.get('HostedZones', []):
+            zone_id = zone['Id'].split('/')[-1]
+            zone_name = zone['Name']
+            
+            # 레코드 세트 조회
+            paginator = route53_client.get_paginator('list_resource_record_sets')
+            
+            for page in paginator.paginate(HostedZoneId=zone_id):
+                for record in page.get('ResourceRecordSets', []):
+                    record_values = [r.get('Value', '') for r in record.get('ResourceRecords', [])]
+                    alias_target = record.get('AliasTarget', {})
+                    
+                    route53_data.append({
+                        'HostedZoneId': zone_id,
+                        'HostedZoneName': zone_name,
+                        'Name': record.get('Name', 'N/A'),
+                        'Type': record.get('Type', 'N/A'),
+                        'TTL': record.get('TTL', 'N/A'),
+                        'RoutingPolicy': record.get('SetIdentifier', 'N/A'),  # 라우팅 정책 식별자
+                        'Values': ', '.join(record_values) if record_values else 'N/A',
+                        'AliasDNSName': alias_target.get('DNSName', 'N/A'),
+                        'AliasHostedZoneId': alias_target.get('HostedZoneId', 'N/A')
+                    })
+        
+        logger.info(f"Route 53 레코드 {len(route53_data)}개 수집 완료")
+        return route53_data
+    
+    except ClientError as e:
+        logger.error(f"Route 53 레코드 수집 실패: {e}")
+        raise AssetCollectionError(f"Route 53 레코드 수집 실패: {e}")
 
-# 호스티드 존 정보 가져오기
-zones_info = get_hosted_zones()
 
-# CSV 파일로 내보내기
-export_records_to_csv(zones_info)
+def main():
+    """메인 함수"""
+    try:
+        # 설정 로드
+        config = Config.from_env()
+        
+        # Route 53 레코드 정보 수집
+        records = collect_route53_records(config)
+        
+        # 딕셔너리 리스트를 행 리스트로 변환
+        if records:
+            headers = list(records[0].keys())
+            data = [[record.get(h, 'N/A') for h in headers] for record in records]
+        else:
+            headers = [
+                'HostedZoneId', 'HostedZoneName', 'Name', 'Type',
+                'TTL', 'RoutingPolicy', 'Values', 'AliasDNSName', 'AliasHostedZoneId'
+            ]
+            data = []
+        
+        # 출력 파일 경로
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_file = Path(config.output_dir) / f"route53_records_{timestamp}.csv"
+        
+        # CSV 파일로 내보내기
+        DataExporter.export_to_csv(data, headers, str(output_file))
+        
+        logger.info(f"Route 53 레코드를 '{output_file}' 파일로 내보냈습니다.")
+    
+    except Exception as e:
+        logger.error(f"오류 발생: {e}", exc_info=True)
+        sys.exit(1)
 
-# 작업 완료 메시지
-"Route 53 레코드를 'route53_records.csv' 파일로 성공적으로 내보냈습니다."
+
+if __name__ == '__main__':
+    main()

@@ -1,0 +1,58 @@
+# ISMS-P 스크립트 출력 파일
+*.csv
+*.xlsx
+*.json
+output/
+logs/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 가상 환경
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Google 서비스 계정 파일 (민감 정보)
+*.json
+!requirements.txt
+!package.json
+
+# AWS 자격 증명 (절대 커밋하지 마세요)
+.aws/
+aws-credentials.txt
+
+# 로그 파일
+*.log
+

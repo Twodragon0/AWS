@@ -1,138 +1,259 @@
+"""
+ISMS-P 2025 가이드 기반 Prowler & Trivy 통합 보안 스캔 스크립트
+
+개선 사항:
+- 타입 힌팅 추가
+- 에러 처리 강화
+- 로깅 시스템 통합
+- 설정 관리 개선
+- ISMS-P 2025 가이드 반영
+"""
+
+import sys
 import subprocess
 import datetime
 import os
+from pathlib import Path
+from typing import Optional, List
+from datetime import datetime
 
-# Prowler AWS 보안 점검 실행
-def run_prowler():
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    report_file = f"prowler_report_{timestamp}.html"
-    prowler_command = f"prowler -M html -S -q > {report_file}"
+# 프로젝트 루트를 Python 경로에 추가
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from utils.config import Config
+from utils.logger import setup_logger
+from utils.exceptions import AssetCollectionError
+
+# 로거 설정
+logger = setup_logger('isms.prowler_trivy_scan')
+
+
+def run_prowler(
+    output_format: str = 'html',
+    output_dir: Optional[str] = None,
+    compliance_framework: Optional[str] = None
+) -> Path:
+    """
+    Prowler AWS 보안 점검 실행
+    
+    Args:
+        output_format: 출력 형식 (html, json, csv)
+        output_dir: 출력 디렉토리
+        compliance_framework: 컴플라이언스 프레임워크 (cis, nist 등)
+    
+    Returns:
+        생성된 보고서 파일 경로
+    """
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_path = Path(output_dir) if output_dir else Path('.')
+    output_path.mkdir(parents=True, exist_ok=True)
+    
+    report_file = output_path / f"prowler_report_{timestamp}.{output_format}"
+    
+    # Prowler 명령어 구성
+    cmd = ['prowler', 'aws', '-M', output_format, '-f', str(report_file)]
+    
+    if compliance_framework:
+        cmd.extend(['-c', compliance_framework])
+    
+    # ISMS-P 2025 관련 추가 옵션
+    cmd.extend(['--verbose'])
     
     try:
-        print("Running Prowler for AWS security check...")
-        subprocess.run(prowler_command, shell=True, check=True)
-        print(f"Prowler report generated: {report_file}")
-    except subprocess.CalledProcessError as e:
-        print(f"Error occurred while running Prowler: {e}")
-
-# Trivy로 AWS ECR 이미지 보안 점검 실행
-def run_trivy_ecr(repository, image_tag, account_id, region):
-    ecr_login_command = f"aws ecr get-login-password --region {region} | docker login --username AWS --password-stdin {account_id}.dkr.ecr.{region}.amazonaws.com"
-    subprocess.run(ecr_login_command, shell=True, check=True)
-    
-    image_uri = f"{account_id}.dkr.ecr.{region}.amazonaws.com/{repository}:{image_tag}"
-    pull_command = f"docker pull {image_uri}"
-    subprocess.run(pull_command, shell=True, check=True)
-
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    report_file = f"trivy_ecr_report_{timestamp}.json"
-    trivy_command = f"trivy image --format json --output {report_file} {image_uri}"
-    
-    try:
-        print(f"Running Trivy for ECR image: {image_uri}...")
-        subprocess.run(trivy_command, shell=True, check=True)
-        print(f"Trivy report generated: {report_file}")
-    except subprocess.CalledProcessError as e:
-        print(f"Error occurred while running Trivy on ECR image: {e}")
-
-# Trivy로 GitHub 리포지토리의 Dockerfile 및 IaC 점검
-def run_trivy_github(repo_url, branch="main"):
-    repo_dir = repo_url.split('/')[-1].replace(".git", "")
-    subprocess.run(f"git clone -b {branch} {repo_url}", shell=True, check=True)
-
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    report_file = f"trivy_github_report_{timestamp}.json"
-    trivy_command = f"trivy config --format json --output {report_file} {repo_dir}"
-    
-    try:
-        print(f"Running Trivy for GitHub repo: {repo_url} on branch {branch}...")
-        subprocess.run(trivy_command, shell=True, check=True)
-        print(f"Trivy report generated: {report_file}")
-    except subprocess.CalledProcessError as e:
-        print(f"Error occurred while running Trivy on GitHub repo: {e}")
-
-# Infracost 실행 (Terraform 등의 IaC 비용 예측)
-def run_infracost(project_path):
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    report_file = f"infracost_report_{timestamp}.json"
-    infracost_command = f"infracost breakdown --path {project_path} --format json --out-file {report_file}"
-    
-    try:
-        print(f"Running Infracost for project at {project_path}...")
-        subprocess.run(infracost_command, shell=True, check=True)
-        print(f"Infracost report generated: {report_file}")
-    except subprocess.CalledProcessError as e:
-        print(f"Error occurred while running Infracost: {e}")
-
-# AWS 비용 데이터 추출 (Cost Explorer)
-def get_aws_costs(start_date, end_date, granularity="DAILY"):
-    cost_command = f"aws ce get-cost-and-usage --time-period Start={start_date},End={end_date} --granularity {granularity} --metrics BlendedCost --output json"
-    
-    try:
-        print(f"Fetching AWS cost data from {start_date} to {end_date}...")
-        result = subprocess.run(cost_command, shell=True, check=True, capture_output=True, text=True)
-        print(f"AWS Cost Data: {result.stdout}")
-        with open(f"aws_cost_report_{start_date}_to_{end_date}.json", "w") as report_file:
-            report_file.write(result.stdout)
-        print("AWS cost report saved.")
-    except subprocess.CalledProcessError as e:
-        print(f"Error occurred while fetching AWS cost data: {e}")
-
-# Wazuh 설정 및 실시간 모니터링 실행
-def setup_wazuh_agent(wazuh_manager_ip, agent_name):
-    # Wazuh 에이전트 설치 및 구성
-    try:
-        print("Installing Wazuh agent...")
-        subprocess.run("curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | sudo apt-key add -", shell=True, check=True)
-        subprocess.run("echo 'deb https://packages.wazuh.com/4.x/apt stable main' | sudo tee /etc/apt/sources.list.d/wazuh.list", shell=True, check=True)
-        subprocess.run("sudo apt-get update && sudo apt-get install wazuh-agent -y", shell=True, check=True)
-        print("Wazuh agent installed successfully.")
+        logger.info("Prowler AWS 보안 점검 실행 중...")
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=3600  # 1시간 타임아웃
+        )
         
-        # Wazuh 에이전트 설정
-        subprocess.run(f"sudo sed -i 's/MANAGER_IP/{wazuh_manager_ip}/g' /var/ossec/etc/ossec.conf", shell=True, check=True)
-        subprocess.run(f"sudo sed -i 's/AGENT_NAME/{agent_name}/g' /var/ossec/etc/ossec.conf", shell=True, check=True)
-        subprocess.run("sudo systemctl enable wazuh-agent && sudo systemctl start wazuh-agent", shell=True, check=True)
-        print(f"Wazuh agent configured and started for manager {wazuh_manager_ip}.")
+        if result.returncode == 0:
+            logger.info(f"Prowler 보고서 생성 완료: {report_file}")
+            return report_file
+        else:
+            logger.error(f"Prowler 실행 실패: {result.stderr}")
+            raise AssetCollectionError(f"Prowler 실행 실패: {result.stderr}")
+    
+    except subprocess.TimeoutExpired:
+        logger.error("Prowler 실행 타임아웃")
+        raise AssetCollectionError("Prowler 실행이 시간 초과되었습니다")
+    except FileNotFoundError:
+        logger.error("Prowler가 설치되지 않았습니다. 'pip install prowler' 실행 필요")
+        raise AssetCollectionError("Prowler가 설치되지 않았습니다")
     except subprocess.CalledProcessError as e:
-        print(f"Error occurred while setting up Wazuh agent: {e}")
+        logger.error(f"Prowler 실행 중 오류 발생: {e}")
+        raise AssetCollectionError(f"Prowler 실행 실패: {e}")
 
-# Wazuh 실시간 로그 모니터링
-def monitor_wazuh_logs():
+
+def run_trivy_ecr(
+    repository: str,
+    image_tag: str,
+    account_id: str,
+    region: str,
+    output_dir: Optional[str] = None
+) -> Path:
+    """
+    Trivy로 AWS ECR 이미지 보안 점검 실행
+    
+    Args:
+        repository: ECR 리포지토리 이름
+        image_tag: 이미지 태그
+        account_id: AWS 계정 ID
+        region: AWS 리전
+        output_dir: 출력 디렉토리
+    
+    Returns:
+        생성된 보고서 파일 경로
+    """
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_path = Path(output_dir) if output_dir else Path('.')
+    output_path.mkdir(parents=True, exist_ok=True)
+    
+    report_file = output_path / f"trivy_ecr_report_{timestamp}.json"
+    image_uri = f"{account_id}.dkr.ecr.{region}.amazonaws.com/{repository}:{image_tag}"
+    
     try:
-        print("Fetching Wazuh agent logs...")
-        subprocess.run("tail -f /var/ossec/logs/ossec.log", shell=True, check=True)
+        # ECR 로그인
+        logger.info(f"ECR 로그인 중: {region}")
+        ecr_login_cmd = [
+            'aws', 'ecr', 'get-login-password', '--region', region
+        ]
+        login_result = subprocess.run(
+            ecr_login_cmd,
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        
+        docker_login_cmd = [
+            'docker', 'login', '--username', 'AWS',
+            '--password-stdin',
+            f"{account_id}.dkr.ecr.{region}.amazonaws.com"
+        ]
+        subprocess.run(
+            docker_login_cmd,
+            input=login_result.stdout,
+            text=True,
+            check=True
+        )
+        
+        # 이미지 Pull
+        logger.info(f"Docker 이미지 Pull 중: {image_uri}")
+        subprocess.run(
+            ['docker', 'pull', image_uri],
+            check=True,
+            timeout=600  # 10분 타임아웃
+        )
+        
+        # Trivy 스캔
+        logger.info(f"Trivy 이미지 스캔 실행 중: {image_uri}")
+        trivy_cmd = [
+            'trivy', 'image',
+            '--format', 'json',
+            '--output', str(report_file),
+            image_uri
+        ]
+        subprocess.run(trivy_cmd, check=True, timeout=1800)  # 30분 타임아웃
+        
+        logger.info(f"Trivy ECR 보고서 생성 완료: {report_file}")
+        return report_file
+    
     except subprocess.CalledProcessError as e:
-        print(f"Error occurred while fetching Wazuh logs: {e}")
+        logger.error(f"Trivy ECR 스캔 실패: {e}")
+        raise AssetCollectionError(f"Trivy ECR 스캔 실패: {e}")
+    except FileNotFoundError:
+        logger.error("Trivy 또는 Docker가 설치되지 않았습니다")
+        raise AssetCollectionError("Trivy 또는 Docker가 설치되지 않았습니다")
 
-# 메인 실행 함수
+
+def run_trivy_github(
+    repo_url: str,
+    branch: str = "main",
+    output_dir: Optional[str] = None
+) -> Path:
+    """
+    Trivy로 GitHub 리포지토리의 Dockerfile 및 IaC 점검
+    
+    Args:
+        repo_url: GitHub 리포지토리 URL
+        branch: 브랜치 이름
+        output_dir: 출력 디렉토리
+    
+    Returns:
+        생성된 보고서 파일 경로
+    """
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_path = Path(output_dir) if output_dir else Path('.')
+    output_path.mkdir(parents=True, exist_ok=True)
+    
+    report_file = output_path / f"trivy_github_report_{timestamp}.json"
+    repo_dir = repo_url.split('/')[-1].replace(".git", "")
+    
+    try:
+        # 리포지토리 클론
+        logger.info(f"GitHub 리포지토리 클론 중: {repo_url} (branch: {branch})")
+        subprocess.run(
+            ['git', 'clone', '-b', branch, repo_url],
+            check=True,
+            timeout=300  # 5분 타임아웃
+        )
+        
+        # Trivy 스캔
+        logger.info(f"Trivy IaC 스캔 실행 중: {repo_dir}")
+        trivy_cmd = [
+            'trivy', 'config',
+            '--format', 'json',
+            '--output', str(report_file),
+            repo_dir
+        ]
+        subprocess.run(trivy_cmd, check=True, timeout=1800)  # 30분 타임아웃
+        
+        logger.info(f"Trivy GitHub 보고서 생성 완료: {report_file}")
+        return report_file
+    
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Trivy GitHub 스캔 실패: {e}")
+        raise AssetCollectionError(f"Trivy GitHub 스캔 실패: {e}")
+    except FileNotFoundError:
+        logger.error("Trivy 또는 Git이 설치되지 않았습니다")
+        raise AssetCollectionError("Trivy 또는 Git이 설치되지 않았습니다")
+
+
+def main():
+    """메인 함수"""
+    try:
+        # 설정 로드
+        config = Config.from_env()
+        output_dir = config.output_dir
+        
+        logger.info("=== ISMS-P 2025 보안 스캔 시작 ===")
+        
+        # Prowler 실행 (AWS 보안 점검)
+        logger.info("1. Prowler AWS 보안 점검 실행")
+        prowler_report = run_prowler(
+            output_format='json',
+            output_dir=output_dir,
+            compliance_framework='cis'  # CIS 기준 점검
+        )
+        logger.info(f"Prowler 보고서: {prowler_report}")
+        
+        # ECR 이미지 스캔 (예제 - 실제 사용 시 파라미터 수정 필요)
+        # logger.info("2. Trivy ECR 이미지 스캔 실행")
+        # trivy_ecr_report = run_trivy_ecr(
+        #     repository="my-repo",
+        #     image_tag="latest",
+        #     account_id="123456789012",
+        #     region="ap-northeast-2",
+        #     output_dir=output_dir
+        # )
+        
+        logger.info("=== ISMS-P 2025 보안 스캔 완료 ===")
+    
+    except Exception as e:
+        logger.error(f"오류 발생: {e}", exc_info=True)
+        sys.exit(1)
+
+
 if __name__ == "__main__":
-    # Prowler 실행 (AWS 보안 점검)
-    run_prowler()
-
-    # AWS ECR 이미지 스캔 실행 (ECR 리포지토리 및 태그 지정)
-    ecr_repository = "my-repo"  
-    image_tag = "latest"  
-    aws_account_id = "123456789012"  
-    aws_region = "ap-northeast-2"
-    run_trivy_ecr(ecr_repository, image_tag, aws_account_id, aws_region)
-
-    # GitHub 리포지토리의 Dockerfile 및 IaC 스캔
-    github_repo_url = "https://github.com/my-user/my-repo.git"
-    run_trivy_github(github_repo_url)
-
-    # Infracost를 통한 비용 점검 (Terraform 프로젝트 경로 지정)
-    terraform_project_path = "/path/to/terraform/project"
-    run_infracost(terraform_project_path)
-
-    # AWS 비용 데이터 분석 (날짜 지정)
-    start_date = "2024-10-01"
-    end_date = "2024-10-15"
-    get_aws_costs(start_date, end_date)
-
-    # Wazuh 에이전트 설치 및 설정
-    wazuh_manager_ip = "192.168.1.100"  # Wazuh 매니저 IP
-    agent_name = "my-cloud-agent"  # 에이전트 이름
-    setup_wazuh_agent(wazuh_manager_ip, agent_name)
-
-    # Wazuh 로그 실시간 모니터링
-    monitor_wazuh_logs()
+    main()

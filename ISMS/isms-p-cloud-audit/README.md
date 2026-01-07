@@ -1,103 +1,284 @@
-# Prowler for ISMS-P 구축 및 인증
+# ISMS-P 2025 가이드 기반 Prowler 자산 식별 및 위험 관리
 
-Prowler는 AWS, Azure, Google Cloud, Kubernetes 환경에서 보안 모니터링과 컴플라이언스 점검을 수행하는 오픈 소스 도구입니다. 이 도구를 사용하여 ISMS-P (정보보호 및 개인정보보호 관리체계) 인증을 받기 위한 보안 체계 구축을 자동화하고 강화할 수 있습니다.
+이 디렉토리는 **ISMS-P 2025 최신 가이드**에 따라 AWS 클라우드 환경의 자산을 자동으로 식별하고, 보안 취약점을 점검하며, 위험을 평가하는 통합 시스템을 제공합니다.
 
-## Prowler 소개
+## 개요
 
-Prowler는 클라우드 인프라의 보안 점검 및 컴플라이언스 준수를 위해 설계된 도구입니다. 다양한 국제적 표준과 규제에 맞춘 점검을 수행하며, 다음과 같은 보안 프레임워크를 지원합니다:
-- **CIS**
-- **NIST 800**
-- **PCI-DSS**
-- **GDPR**
-- **HIPAA**
-- **SOC2**
-- **AWS Well-Architected Framework** 등
+ISMS-P 2025 가이드의 주요 요구사항:
+- **자산 식별 및 관리**: 클라우드 자산의 자동 식별 및 중요도 평가
+- **위험 평가**: CIA(기밀성, 무결성, 가용성) 기준 위험 평가
+- **보안 점검**: Prowler를 통한 자동화된 보안 점검
+- **지속적인 모니터링**: 정기적인 점검 및 위험 추적
 
-자세한 정보는 [Prowler 공식 문서](https://docs.prowler.com)에서 확인할 수 있습니다.
+## 주요 스크립트
 
-## ISMS-P 개요
+### 1. `prowler_isms_2025.py` - 통합 자산 식별 및 위험 관리
 
-**ISMS-P**는 정보보호와 개인정보보호를 통합적으로 관리할 수 있는 체계로, 기업의 정보보호 역량을 향상시키고 개인정보의 안전한 처리를 보장합니다. Prowler를 사용하여 ISMS-P 인증을 위한 보안 점검 및 자산 관리 절차를 자동화할 수 있습니다.
+ISMS-P 2025 가이드에 맞춘 종합적인 자산 식별 및 위험 평가 시스템입니다.
 
-### ISMS-P 인증 절차
-1. **자산 식별 및 관리**: 클라우드 자산을 자동으로 스캔하고 자산 목록을 유지 관리합니다.
-2. **취약점 관리**: 주기적인 보안 스캔과 점검을 통해 보안 취약점을 식별하고 조치합니다.
-3. **법적 준거성 확보**: Prowler는 다양한 법적 요구사항을 준수하는지 자동으로 점검합니다.
-4. **위험 평가 및 대응**: 잠재적 위협을 평가하고 대응 계획을 세울 수 있습니다.
-5. **보안 정책 수립**: 점검 결과에 따른 보안 정책과 절차를 수립하고 문서화합니다.
+**주요 기능:**
+- AWS 자산 자동 식별 (EC2, S3, RDS, Lambda 등)
+- 자산 중요도 평가 (CIA 기준)
+- Prowler 보안 점검 통합
+- 위험 등급 자동 부여 (Critical, High, Medium, Low)
+- 위험 평가 보고서 생성
 
-## Prowler 설치 및 실행 방법
+**사용법:**
+```bash
+# 기본 실행
+python prowler_isms_2025.py
 
-### 1. **Poetry로 설치**
-Prowler는 PyPI에서 설치할 수 있습니다. Python >= 3.9, < 3.13이 필요합니다.
+# 환경 변수 설정
+export AWS_REGION=ap-northeast-2
+export ISMS_OUTPUT_DIR=./output
+python prowler_isms_2025.py
+```
+
+**출력:**
+- `isms_risk_report_YYYYMMDD_HHMMSS.json`: 위험 평가 보고서 (JSON)
+- `prowler_scan_YYYYMMDD_HHMMSS.json`: Prowler 스캔 결과
+
+### 2. `risk_dashboard.py` - 위험 관리 대시보드 생성
+
+위험 평가 보고서를 기반으로 시각적인 HTML 대시보드를 생성합니다.
+
+**사용법:**
+```bash
+# 보고서 파일로부터 대시보드 생성
+python risk_dashboard.py isms_risk_report_20241201_120000.json
+
+# 출력 파일 지정
+python risk_dashboard.py isms_risk_report_20241201_120000.json -o dashboard.html
+```
+
+**대시보드 기능:**
+- 위험 등급별 통계 (Critical, High, Medium, Low)
+- 위험 점수 분포 차트
+- 자산별 위험 평가 상세 테이블
+- 시각적 위험 등급 표시
+
+### 3. `prowler-trivy-scan.py` - Prowler & Trivy 통합 스캔
+
+Prowler와 Trivy를 통합하여 AWS 인프라 및 컨테이너 이미지 보안을 점검합니다.
+
+**사용법:**
+```bash
+python prowler-trivy-scan.py
+```
+
+## 설치 및 설정
+
+### 1. 의존성 설치
 
 ```bash
+# 기본 의존성
+pip install -r ../requirements.txt
+
+# Prowler 설치
+pip install prowler
+
+# Trivy 설치 (선택적)
+# macOS
+brew install trivy
+
+# Linux
+sudo apt-get install wget apt-transport-https gnupg lsb-release
+wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+sudo apt-get update
+sudo apt-get install trivy
+```
+
+### 2. AWS 자격 증명 설정
+
+```bash
+# AWS CLI 설정
+aws configure
+
+# 또는 환경 변수
+export AWS_ACCESS_KEY_ID=your-access-key
+export AWS_SECRET_ACCESS_KEY=your-secret-key
+export AWS_REGION=ap-northeast-2
+```
+
+### 3. 환경 변수 설정
+
+```bash
+# 출력 디렉토리
+export ISMS_OUTPUT_DIR=./output
+
+# 로깅 레벨
+export ISMS_LOG_LEVEL=INFO
+```
+
+## ISMS-P 2025 가이드 반영 사항
+
+### 1. 자산 식별 및 중요도 평가
+
+- **자동 자산 식별**: AWS API를 통한 자산 자동 수집
+- **CIA 기준 평가**: 기밀성, 무결성, 가용성 기준 중요도 평가
+- **태그 기반 분류**: AWS 태그를 활용한 자산 분류
+
+### 2. 위험 평가 및 등급 부여
+
+- **위험 점수 계산**: 자산 중요도와 보안 취약점을 종합한 위험 점수 (0-100)
+- **위험 등급 분류**:
+  - Critical (80점 이상): 즉시 조치 필요
+  - High (60-79점): 우선 조치 필요
+  - Medium (40-59점): 계획적 조치 필요
+  - Low (20-39점): 모니터링 필요
+  - Info (20점 미만): 정보성
+
+### 3. 클라우드 환경 보안 강화
+
+- **데이터 주권 준수**: 리전별 자산 식별 및 관리
+- **암호화 점검**: Prowler를 통한 암호화 설정 자동 점검
+- **접근 제어 점검**: IAM 정책 및 보안 그룹 설정 점검
+
+### 4. AI/머신러닝 데이터 처리 보안
+
+- **데이터 분류 태그**: 자산별 데이터 분류 태그 확인
+- **비식별화 처리**: 개인정보 처리 자산 식별
+- **보안 관리체계**: AI/ML 관련 자산의 보안 설정 점검
+
+## 워크플로우
+
+### 1. 자산 식별 단계
+
+```python
+from prowler_isms_2025 import ProwlerISMS2025
+from utils.config import Config
+
+config = Config.from_env()
+assessor = ProwlerISMS2025(config)
+
+# 자산 식별
+assets = assessor.identify_assets()
+```
+
+### 2. 보안 점검 단계
+
+```python
+# Prowler 스캔 실행
+prowler_output = assessor.run_prowler_scan(
+    output_format='json',
+    compliance_framework='cis'
+)
+
+# 결과 파싱
+findings = assessor.parse_prowler_results(prowler_output)
+```
+
+### 3. 위험 평가 단계
+
+```python
+# 위험 평가
+assessments = assessor.assess_risks(assets, findings)
+
+# 보고서 생성
+report_file = assessor.generate_risk_report(
+    assessments, assets, findings
+)
+```
+
+### 4. 대시보드 생성
+
+```bash
+python risk_dashboard.py isms_risk_report_20241201_120000.json
+```
+
+## 자동화 및 스케줄링
+
+### Cron 작업 설정
+
+```bash
+# 매주 월요일 오전 9시에 실행
+0 9 * * 1 cd /path/to/ISMS/isms-p-cloud-audit && /usr/bin/python3 prowler_isms_2025.py >> /var/log/isms.log 2>&1
+```
+
+### Lambda 함수로 실행
+
+스크립트를 Lambda 함수로 변환하여 EventBridge로 정기 실행할 수 있습니다.
+
+## 보고서 분석
+
+### JSON 보고서 구조
+
+```json
+{
+  "report_metadata": {
+    "generated_at": "2024-12-01T12:00:00",
+    "report_type": "ISMS-P 2025 Risk Assessment",
+    "total_assets": 50,
+    "total_findings": 120
+  },
+  "summary": {
+    "critical_risks": 5,
+    "high_risks": 15,
+    "medium_risks": 30,
+    "low_risks": 10,
+    "average_risk_score": 45.5
+  },
+  "assets": [...],
+  "assessments": [...],
+  "findings": [...]
+}
+```
+
+### 위험 등급별 조치 우선순위
+
+1. **Critical (즉시 조치)**
+   - 보안 정책 위반
+   - 암호화 미설정
+   - 퍼블릭 액세스 허용
+
+2. **High (우선 조치)**
+   - 로깅 미설정
+   - 버전 관리 미설정
+   - 백업 미설정
+
+3. **Medium (계획적 조치)**
+   - 태그 미설정
+   - 모니터링 알림 미설정
+
+4. **Low (모니터링)**
+   - 최적화 권장 사항
+   - 정보성 알림
+
+## 문제 해결
+
+### Prowler 설치 오류
+
+```bash
+# Python 버전 확인 (3.9 이상 필요)
+python3 --version
+
+# Prowler 재설치
+pip uninstall prowler
 pip install prowler
 ```
 
-설치 후 Prowler의 버전을 확인합니다:
+### AWS 권한 오류
 
-```bash
-prowler -v
-```
+필요한 IAM 권한:
+- `ec2:DescribeInstances`
+- `s3:ListBuckets`, `s3:GetBucket*`
+- `rds:DescribeDBInstances`
+- `lambda:ListFunctions`
+- `iam:ListRoles`, `iam:GetRolePolicy`
 
-또는 직접 **GitHub**에서 Prowler를 클론하여 설치할 수 있습니다:
+### 메모리 부족 오류
 
-```bash
-git clone https://github.com/prowler-cloud/prowler
-cd prowler
-poetry shell
-poetry install
-```
+대량의 자산이 있는 경우:
+- 서비스별로 나누어 실행
+- 배치 처리로 분할 실행
 
-### 2. **Prowler 실행**
-Prowler는 CLI를 통해 다양한 클라우드 환경에 대한 보안 점검을 수행할 수 있습니다. 예를 들어, AWS 환경의 모든 서비스를 점검하려면 다음 명령어를 실행하세요:
+## 참고 자료
 
-```bash
-prowler aws
-```
-
-특정 클라우드 서비스의 점검 결과를 CSV로 저장하려면:
-
-```bash
-prowler aws -M csv > results.csv
-```
-
-### 3. **Prowler 대시보드**
-Prowler는 기본적으로 대시보드를 제공하지 않지만, 결과를 CSV 또는 JSON 형식으로 출력하여 **Grafana**, **AWS QuickSight** 등을 통해 시각화할 수 있습니다. 예를 들어, Prowler 점검 결과를 S3에 저장하고 **AWS QuickSight**에서 분석할 수 있습니다:
-
-```bash
-prowler aws -M csv > s3://your-bucket-name/prowler-results.csv
-```
-
-### 4. **Prowler로 ISMS-P 점검 수행하기**
-Prowler를 사용하여 ISMS-P 인증을 위한 보안 점검을 수행하는 방법:
-
-- **자산 식별 및 보안 점검**:
-   ```bash
-   prowler aws --list-services
-   ```
-   자산을 자동으로 스캔하여 식별하고, 보안 상태를 모니터링합니다.
-
-- **취약점 관리**:
-   ```bash
-   prowler aws -M json
-   ```
-   주기적으로 취약점을 점검하고, 보고서를 생성하여 추후 분석 및 대응 조치를 계획합니다.
-
-## 주요 기능 및 이점
-
-- **자동화된 보안 점검**: AWS, GCP, Azure 등 주요 클라우드 제공자의 보안 설정을 자동으로 스캔하고 결과를 제공합니다.
-- **컴플라이언스 준수**: Prowler는 여러 국제 표준 및 규제(CIS, PCI-DSS, GDPR, NIST 등)에 따른 보안 점검을 지원합니다.
-- **결과 시각화**: 점검 결과를 CSV, JSON, HTML 형식으로 내보내고, 이를 시각화 도구로 쉽게 분석할 수 있습니다.
-
-## 자산 관리 및 보안 점검을 위한 Prowler 활용
-
-Prowler는 자산 관리 및 보안 점검의 효율성을 높이기 위해 다양한 클라우드 서비스와의 통합을 제공합니다. 주기적인 스캔 및 리포트 생성을 통해 조직의 정보보호 및 개인정보보호 수준을 강화할 수 있습니다. 이를 통해 ISMS-P 인증 요구 사항을 쉽게 충족할 수 있습니다.
-
-자세한 사용법은 [Prowler 공식 문서](https://docs.prowler.com)를 참조하세요.
-
----
+- [Prowler 공식 문서](https://docs.prowler.com)
+- [ISMS-P 인증 가이드](https://isms.go.kr)
+- [AWS 보안 모범 사례](https://aws.amazon.com/security/best-practices/)
 
 ## 라이선스
-이 프로젝트는 [Apache License 2.0](http://www.apache.org/licenses/LICENSE-2.0) 하에 제공됩니다.
+
+이 프로젝트는 MIT 라이선스 하에 제공됩니다.

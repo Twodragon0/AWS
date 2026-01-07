@@ -531,6 +531,52 @@ export ISMS_LOG_LEVEL=DEBUG
 python aws_info.py
 ```
 
+## ISMS-P 2025 Prowler 활용 방안
+
+### Prowler를 활용한 자산 식별 및 위험 관리
+
+ISMS-P 2025 최신 가이드에 따라 Prowler를 활용한 자동화된 자산 식별 및 위험 관리 시스템을 제공합니다.
+
+**주요 기능:**
+- AWS 자산 자동 식별 및 중요도 평가 (CIA 기준)
+- Prowler 보안 점검 통합
+- 위험 등급 자동 부여 및 우선순위 관리
+- 위험 관리 대시보드 생성
+
+**사용법:**
+```bash
+# Prowler 설치
+pip install prowler
+
+# 통합 자산 식별 및 위험 평가 실행
+cd isms-p-cloud-audit
+python prowler_isms_2025.py
+
+# 위험 관리 대시보드 생성
+python risk_dashboard.py isms_risk_report_20241201_120000.json
+```
+
+**자세한 내용:** [`isms-p-cloud-audit/README.md`](isms-p-cloud-audit/README.md) 참조
+
+### 위험 평가 기준 (ISMS-P 2025)
+
+- **Critical (80점 이상)**: 즉시 조치 필요
+  - 보안 정책 위반
+  - 암호화 미설정
+  - 퍼블릭 액세스 허용
+
+- **High (60-79점)**: 우선 조치 필요
+  - 로깅 미설정
+  - 버전 관리 미설정
+  - 백업 미설정
+
+- **Medium (40-59점)**: 계획적 조치 필요
+  - 태그 미설정
+  - 모니터링 알림 미설정
+
+- **Low (20-39점)**: 모니터링 필요
+  - 최적화 권장 사항
+
 ## 자동화
 
 ### Cron 작업 설정
@@ -540,6 +586,9 @@ python aws_info.py
 ```bash
 # 매일 오전 9시에 실행
 0 9 * * * cd /path/to/ISMS && /usr/bin/python3 aws_info.py >> /var/log/isms.log 2>&1
+
+# 매주 월요일 오전 9시에 위험 평가 실행
+0 9 * * 1 cd /path/to/ISMS/isms-p-cloud-audit && /usr/bin/python3 prowler_isms_2025.py >> /var/log/isms_risk.log 2>&1
 ```
 
 ### Lambda 함수로 실행

@@ -1,334 +1,525 @@
-import boto3
-import csv
-import openpyxl
-from openpyxl.utils.dataframe import dataframe_to_rows
-import pandas as pd
-from botocore.exceptions import ClientError
-from oauth2client.service_account import ServiceAccountCredentials
+"""
+AWS 자산 정보 수집 스크립트
+ISMS-P 인증을 위한 AWS 자산 목록 생성
+
+이 스크립트는 다음 AWS 서비스의 자산 정보를 수집합니다:
+- EC2 인스턴스
+- S3 버킷
+- ECR 리포지토리
+- IAM 역할 및 정책
+- Route 53 호스티드 존 및 레코드
+- RDS 인스턴스
+- CloudFront 배포
+- Lambda 함수
+
+출력 형식: Excel (XLSX)
+"""
+
+import sys
+from pathlib import Path
+from typing import List, Dict, Any, Optional
 import json
+from datetime import datetime
+
+# 프로젝트 루트를 Python 경로에 추가
+sys.path.insert(0, str(Path(__file__).parent))
+
+from utils.aws_clients import get_aws_clients
+from utils.config import Config
+from utils.logger import setup_logger
+from utils.exceptions import AssetCollectionError, ExportError
+from utils.exporters import DataExporter
+from botocore.exceptions import ClientError
+import pandas as pd
+
+# 로거 설정
+logger = setup_logger('isms.aws_info')
 
 
-# Boto3 클라이언트 생성
-ec2_client = boto3.client('ec2')
-s3_client = boto3.client('s3')
-ecr_client = boto3.client('ecr', region_name='ap-northeast-2')  # 리전 설정
-route53_client = boto3.client('route53')
-rds_client = boto3.client('rds')
-cloudfront_client = boto3.client('cloudfront')
-lambda_client = boto3.client('lambda')
-iam_client = boto3.client('iam')
-
-# EC2 인스턴스 정보 조회
-ec2_response = ec2_client.describe_instances()
-
-# EC2 인스턴스 정보 저장을 위한 리스트
+class AWSAssetCollector:
+    """AWS 자산 수집 클래스"""
+    
+    def __init__(self, config: Config):
+        """
+        초기화
+        
+        Args:
+            config: 설정 객체
+        """
+        self.config = config
+        self.clients = get_aws_clients(region=config.aws_region, profile=config.aws_profile)
+        
+        # AWS 연결 테스트
+        if not self.clients.test_connection():
+            raise AssetCollectionError("AWS 연결 실패. 자격 증명을 확인하세요.")
+    
+    def collect_ec2_instances(self) -> List[List[Any]]:
+        """
+        EC2 인스턴스 정보 수집
+        
+        Returns:
+            EC2 인스턴스 정보 리스트
+        """
+        logger.info("EC2 인스턴스 정보 수집 중...")
+        ec2_client = self.clients.get_client('ec2')
 ec2_data = []
 
-# EC2 인스턴스 정보 추출 및 리스트에 추가
-for reservation in ec2_response['Reservations']:
-    for instance in reservation['Instances']:
-        host_name = next((tag['Value'] for tag in instance.get('Tags', []) if tag['Key'] == 'Name'), None)
-        usage = next((tag['Value'] for tag in instance.get('Tags', []) if tag['Key'] == 'Usage'), None)
-        instance_id = instance['InstanceId']
-        spec = instance['InstanceType']
+        try:
+            response = ec2_client.describe_instances()
+            
+            for reservation in response.get('Reservations', []):
+                for instance in reservation.get('Instances', []):
+                    # 태그에서 정보 추출
+                    tags = {tag['Key']: tag['Value'] for tag in instance.get('Tags', [])}
+                    host_name = tags.get('Name', 'N/A')
+                    usage = tags.get('Usage', 'N/A')
+                    
+                    # 인스턴스 정보 추출
+                    instance_id = instance.get('InstanceId', 'N/A')
+                    spec = instance.get('InstanceType', 'N/A')
         os = instance.get('Platform', 'Linux/UNIX')
         version = instance.get('ImageId', 'N/A')
-        availability_zone = instance['Placement']['AvailabilityZone']
+                    availability_zone = instance.get('Placement', {}).get('AvailabilityZone', 'N/A')
         public_ip = instance.get('PublicIpAddress', 'N/A')
         private_ip = instance.get('PrivateIpAddress', 'N/A')
-        status = instance['State']['Name']
-        ec2_data.append([host_name, instance_id, spec, os, version, availability_zone, public_ip, private_ip, usage, status])
-
-# S3 자산 정보 수집 함수들
-
-def get_bucket_acl(client, bucket):
+                    status = instance.get('State', {}).get('Name', 'N/A')
+                    
+                    ec2_data.append([
+                        host_name, instance_id, spec, os, version,
+                        availability_zone, public_ip, private_ip, usage, status
+                    ])
+            
+            logger.info(f"EC2 인스턴스 {len(ec2_data)}개 수집 완료")
+            return ec2_data
+        
+        except ClientError as e:
+            logger.error(f"EC2 인스턴스 수집 실패: {e}")
+            raise AssetCollectionError(f"EC2 인스턴스 수집 실패: {e}")
+    
+    def collect_s3_buckets(self) -> List[List[Any]]:
+        """
+        S3 버킷 정보 수집
+        
+        Returns:
+            S3 버킷 정보 리스트
+        """
+        logger.info("S3 버킷 정보 수집 중...")
+        s3_client = self.clients.get_client('s3')
+        s3_data = []
+        
+        try:
+            response = s3_client.list_buckets()
+            
+            for bucket in response.get('Buckets', []):
+                bucket_name = bucket['Name']
+                
+                # 버킷 상세 정보 수집
+                acl_info = self._get_bucket_acl(s3_client, bucket_name)
+                encryption_info = self._get_bucket_encryption(s3_client, bucket_name)
+                logging_info = self._get_bucket_logging(s3_client, bucket_name)
+                policy_info = self._get_bucket_policy(s3_client, bucket_name)
+                public_access_info = self._get_public_access_block(s3_client, bucket_name)
+                
+                s3_data.append([
+                    bucket_name, acl_info, encryption_info,
+                    logging_info, policy_info, public_access_info
+                ])
+            
+            logger.info(f"S3 버킷 {len(s3_data)}개 수집 완료")
+            return s3_data
+        
+        except ClientError as e:
+            logger.error(f"S3 버킷 수집 실패: {e}")
+            raise AssetCollectionError(f"S3 버킷 수집 실패: {e}")
+    
+    def _get_bucket_acl(self, client, bucket: str) -> str:
     """버킷 ACL 정보 조회"""
     try:
         response = client.get_bucket_acl(Bucket=bucket)
         acl_info = []
-        for grant in response['Grants']:
-            grantee = grant['Grantee']
-            permission = grant['Permission']
-            acl_info.append(f"{grantee.get('Type')}: {permission}")
-        return ', '.join(acl_info)
+            for grant in response.get('Grants', []):
+                grantee = grant.get('Grantee', {})
+                permission = grant.get('Permission', '')
+                grantee_type = grantee.get('Type', 'Unknown')
+                acl_info.append(f"{grantee_type}: {permission}")
+            return ', '.join(acl_info) if acl_info else 'N/A'
     except ClientError as e:
-        return f"Error: {str(e)}"
+            return f"Error: {e.response.get('Error', {}).get('Code', 'Unknown')}"
 
-def get_bucket_encryption(client, bucket):
+    def _get_bucket_encryption(self, client, bucket: str) -> str:
     """버킷 암호화 정보 조회"""
     try:
         response = client.get_bucket_encryption(Bucket=bucket)
-        encryption_rules = response['ServerSideEncryptionConfiguration']['Rules']
-        return json.dumps(encryption_rules, indent=2)
+            encryption_rules = response.get('ServerSideEncryptionConfiguration', {}).get('Rules', [])
+            return json.dumps(encryption_rules, indent=2) if encryption_rules else 'N/A'
     except ClientError as e:
-        return f"Error: {str(e)}"
+            error_code = e.response.get('Error', {}).get('Code', '')
+            if error_code == 'ServerSideEncryptionConfigurationNotFoundError':
+                return 'Not configured'
+            return f"Error: {error_code}"
 
-def get_bucket_logging(client, bucket):
+    def _get_bucket_logging(self, client, bucket: str) -> str:
     """버킷 로깅 설정 정보 조회"""
     try:
         response = client.get_bucket_logging(Bucket=bucket)
         logging_info = response.get('LoggingEnabled', {})
         if logging_info:
             return f"TargetBucket: {logging_info.get('TargetBucket')}, TargetPrefix: {logging_info.get('TargetPrefix')}"
-        else:
-            return "Logging not enabled"
+            return "Not enabled"
     except ClientError as e:
-        return f"Error: {str(e)}"
+            return f"Error: {e.response.get('Error', {}).get('Code', 'Unknown')}"
 
-def get_bucket_policy(client, bucket):
+    def _get_bucket_policy(self, client, bucket: str) -> str:
     """버킷 정책 조회"""
     try:
         response = client.get_bucket_policy(Bucket=bucket)
-        return json.dumps(json.loads(response['Policy']), indent=2)
+            policy = json.loads(response.get('Policy', '{}'))
+            return json.dumps(policy, indent=2)
     except ClientError as e:
-        return f"Error: {str(e)}"
+            error_code = e.response.get('Error', {}).get('Code', '')
+            if error_code == 'NoSuchBucketPolicy':
+                return 'No policy'
+            return f"Error: {error_code}"
 
-def get_public_access_block(client, bucket):
+    def _get_public_access_block(self, client, bucket: str) -> str:
     """버킷 퍼블릭 액세스 차단 정보 조회"""
     try:
         response = client.get_public_access_block(Bucket=bucket)
-        block_config = response['PublicAccessBlockConfiguration']
+            block_config = response.get('PublicAccessBlockConfiguration', {})
         return json.dumps(block_config, indent=2)
     except ClientError as e:
-        return f"Error: {str(e)}"
-
-# S3 버킷 정보 조회 및 상세 정보 수집
-s3_response = s3_client.list_buckets()
-
-s3_data = []
-for bucket in s3_response['Buckets']:
-    bucket_name = bucket['Name']
-    bucket_acl = get_bucket_acl(s3_client, bucket_name)
-    bucket_encryption = get_bucket_encryption(s3_client, bucket_name)
-    bucket_logging = get_bucket_logging(s3_client, bucket_name)
-    bucket_policy = get_bucket_policy(s3_client, bucket_name)
-    public_access_block = get_public_access_block(s3_client, bucket_name)
-
-    s3_data.append([bucket_name, bucket_acl, bucket_encryption, bucket_logging, bucket_policy, public_access_block])
-
-# ECR 리포지토리 정보 조회 함수
-def get_ecr_repositories():
-    repositories = []
-    response = ecr_client.describe_repositories()
+            error_code = e.response.get('Error', {}).get('Code', '')
+            if error_code == 'NoSuchPublicAccessBlockConfiguration':
+                return 'Not configured'
+            return f"Error: {error_code}"
     
-    while True:
-        repositories.extend(response['repositories'])
-        if 'nextToken' in response:
-            response = ecr_client.describe_repositories(nextToken=response['nextToken'])
-        else:
-            break
-    return repositories
-
-# ECR 리포지토리 자산 정보 수집 함수
-def get_ecr_asset_info():
+    def collect_ecr_repositories(self) -> List[List[Any]]:
+        """
+        ECR 리포지토리 정보 수집
+        
+        Returns:
+            ECR 리포지토리 정보 리스트
+        """
+        logger.info("ECR 리포지토리 정보 수집 중...")
+        ecr_client = self.clients.get_client('ecr', region=self.config.aws_region)
     ecr_data = []
-    repositories = get_ecr_repositories()
-
-    for repo in repositories:
-        repository_name = repo['repositoryName']
-        repository_uri = repo['repositoryUri']
-        created_at = repo['createdAt'].strftime("%Y-%m-%d %H:%M:%S")
-        image_scanning = repo['imageScanningConfiguration']['scanOnPush']
-        image_tag_mutability = repo['imageTagMutability']
-        lifecycle_policy = "Enabled" if 'lifecyclePolicy' in repo else "Disabled"
+        
+        try:
+            paginator = ecr_client.get_paginator('describe_repositories')
+            
+            for page in paginator.paginate():
+                for repo in page.get('repositories', []):
+                    repository_name = repo.get('repositoryName', 'N/A')
+                    repository_uri = repo.get('repositoryUri', 'N/A')
+                    created_at = repo.get('createdAt', datetime.now()).strftime("%Y-%m-%d %H:%M:%S")
+                    image_scanning = repo.get('imageScanningConfiguration', {}).get('scanOnPush', False)
+                    image_tag_mutability = repo.get('imageTagMutability', 'MUTABLE')
         
         ecr_data.append([
-            repository_name,
-            repository_uri,
-            created_at,
-            image_scanning,
-            image_tag_mutability,
-            lifecycle_policy
-        ])
+                        repository_name, repository_uri, created_at,
+                        image_scanning, image_tag_mutability, 'N/A'  # lifecycle_policy는 별도 조회 필요
+                    ])
+            
+            logger.info(f"ECR 리포지토리 {len(ecr_data)}개 수집 완료")
     return ecr_data
 
-
-# IAM 자산 정보 수집 클래스
-class imds:
-    def __init__(self):
-        # Boto3 클라이언트를 사용하여 IAM API 호출
-        self.iam_client = boto3.client('iam')
-
-    def getIamRoleList(self):
-        """모든 IAM 역할을 가져옵니다."""
-        iam_role_list = []
-        paginator = self.iam_client.get_paginator('list_roles')
+        except ClientError as e:
+            logger.error(f"ECR 리포지토리 수집 실패: {e}")
+            raise AssetCollectionError(f"ECR 리포지토리 수집 실패: {e}")
+    
+    def collect_iam_roles(self) -> List[List[Any]]:
+        """
+        IAM 역할 및 정책 정보 수집
+        
+        Returns:
+            IAM 역할 및 정책 정보 리스트
+        """
+        logger.info("IAM 역할 및 정책 정보 수집 중...")
+        iam_client = self.clients.get_client('iam')
+        iam_data = []
+        
+        try:
+            # 모든 역할 목록 가져오기
+            paginator = iam_client.get_paginator('list_roles')
+            
         for page in paginator.paginate():
-            for role in page['Roles']:
-                iam_role_list.append(role['RoleName'])
-        return iam_role_list
-
-    def getPolicyInlineList(self, iam_role):
-        """특정 IAM 역할의 인라인 정책을 가져옵니다."""
-        inline_policies = []
-        paginator = self.iam_client.get_paginator('list_role_policies')
-        for page in paginator.paginate(RoleName=iam_role):
-            inline_policies.extend(page['PolicyNames'])
-        return inline_policies
-
-    def getPolicyManagedList(self, iam_role):
-        """특정 IAM 역할의 관리형 정책을 가져옵니다."""
-        managed_policies = []
-        paginator = self.iam_client.get_paginator('list_attached_role_policies')
-        for page in paginator.paginate(RoleName=iam_role):
-            managed_policies.extend(page['AttachedPolicies'])
-        return managed_policies
-
-    def getPolicyDocument(self, iam_role, policy_name, policy_arn=None, policy_type='inline'):
-        """특정 IAM 역할의 인라인 또는 관리형 정책 문서를 가져옵니다."""
-        if policy_type == 'inline':
-            response = self.iam_client.get_role_policy(RoleName=iam_role, PolicyName=policy_name)
-            return response['PolicyDocument']
-        else:
-            # 관리형 정책은 ARN을 통해 가져옴
-            response = self.iam_client.get_policy(PolicyArn=policy_arn)
-            default_version_id = response['Policy']['DefaultVersionId']
-            version = self.iam_client.get_policy_version(PolicyArn=policy_arn, VersionId=default_version_id)
-            return version['PolicyVersion']['Document']
-
-# IAM 자산 수집 실행
-tool = imds()
-iam_role_list = tool.getIamRoleList()
-iam_data = []
-
-# 각 IAM 역할에 대해 정책 정보를 수집
-for iam_role in iam_role_list:
-    print(f"Collecting policies for IAM role: {iam_role}")
+                for role in page.get('Roles', []):
+                    role_name = role.get('RoleName', 'N/A')
+                    
+                    # 인라인 정책
+                    try:
+                        inline_paginator = iam_client.get_paginator('list_role_policies')
+                        for inline_page in inline_paginator.paginate(RoleName=role_name):
+                            for policy_name in inline_page.get('PolicyNames', []):
+                                try:
+                                    policy_response = iam_client.get_role_policy(
+                                        RoleName=role_name,
+                                        PolicyName=policy_name
+                                    )
+                                    policy_doc = policy_response.get('PolicyDocument', {})
+                                    iam_data.append([
+                                        role_name, policy_name, 'inline',
+                                        json.dumps(policy_doc, indent=2)
+                                    ])
+                                except ClientError as e:
+                                    logger.warning(f"IAM 인라인 정책 조회 실패 ({role_name}/{policy_name}): {e}")
+                    except ClientError as e:
+                        logger.warning(f"IAM 인라인 정책 목록 조회 실패 ({role_name}): {e}")
+                    
+                    # 관리형 정책
+                    try:
+                        managed_paginator = iam_client.get_paginator('list_attached_role_policies')
+                        for managed_page in managed_paginator.paginate(RoleName=role_name):
+                            for policy in managed_page.get('AttachedPolicies', []):
+                                policy_arn = policy.get('PolicyArn', '')
+                                policy_name = policy.get('PolicyName', 'N/A')
+                                
+                                try:
+                                    policy_response = iam_client.get_policy(PolicyArn=policy_arn)
+                                    default_version_id = policy_response['Policy']['DefaultVersionId']
+                                    version_response = iam_client.get_policy_version(
+                                        PolicyArn=policy_arn,
+                                        VersionId=default_version_id
+                                    )
+                                    policy_doc = version_response['PolicyVersion'].get('Document', {})
+                                    iam_data.append([
+                                        role_name, policy_name, 'managed',
+                                        json.dumps(policy_doc, indent=2)
+                                    ])
+                                except ClientError as e:
+                                    logger.warning(f"IAM 관리형 정책 조회 실패 ({policy_arn}): {e}")
+                    except ClientError as e:
+                        logger.warning(f"IAM 관리형 정책 목록 조회 실패 ({role_name}): {e}")
+            
+            logger.info(f"IAM 역할 및 정책 {len(iam_data)}개 수집 완료")
+            return iam_data
+        
+        except ClientError as e:
+            logger.error(f"IAM 역할 수집 실패: {e}")
+            raise AssetCollectionError(f"IAM 역할 수집 실패: {e}")
     
-    # 인라인 정책 가져오기
-    inline_policies = tool.getPolicyInlineList(iam_role)
-    for policy_name in inline_policies:
-        policy_document = tool.getPolicyDocument(iam_role, policy_name, policy_type='inline')
-        iam_data.append([iam_role, policy_name, 'inline', json.dumps(policy_document)])
-
-    # 관리형 정책 가져오기
-    managed_policies = tool.getPolicyManagedList(iam_role)
-    for policy in managed_policies:
-        policy_name = policy['PolicyName']
-        policy_arn = policy['PolicyArn']  # 관리형 정책의 ARN을 가져옴
-        policy_document = tool.getPolicyDocument(iam_role, policy_name, policy_arn=policy_arn, policy_type='managed')
-        iam_data.append([iam_role, policy_name, 'managed', json.dumps(policy_document)])
-
-
-# Route 53 자산 정보 수집 함수
-def get_hosted_zones():
-    """모든 Route 53 호스티드 존의 정보를 가져옵니다."""
-    hosted_zones = route53_client.list_hosted_zones()
-    zones_info = [(zone['Id'].split('/')[-1], zone['Name']) for zone in hosted_zones['HostedZones']]
-    return zones_info
-
-def get_records_by_zone(zone_id):
-    """주어진 호스티드 존 ID에 대한 모든 레코드 세트 정보를 가져옵니다."""
+    def collect_route53_records(self) -> List[Dict[str, Any]]:
+        """
+        Route 53 호스티드 존 및 레코드 정보 수집
+        
+        Returns:
+            Route 53 레코드 정보 딕셔너리 리스트
+        """
+        logger.info("Route 53 레코드 정보 수집 중...")
+        route53_client = self.clients.get_client('route53')
+        route53_data = []
+        
+        try:
+            # 호스티드 존 목록
+            hosted_zones = route53_client.list_hosted_zones()
+            
+            for zone in hosted_zones.get('HostedZones', []):
+                zone_id = zone['Id'].split('/')[-1]
+                zone_name = zone['Name']
+                
+                # 레코드 세트 조회
     paginator = route53_client.get_paginator('list_resource_record_sets')
-    page_iterator = paginator.paginate(HostedZoneId=zone_id)
-    
-    records_info = []
-    for page in page_iterator:
-        for record in page['ResourceRecordSets']:
-            record_values = [value['Value'] for value in record.get('ResourceRecords', [])]
+                
+                for page in paginator.paginate(HostedZoneId=zone_id):
+                    for record in page.get('ResourceRecordSets', []):
+                        record_values = [r.get('Value', '') for r in record.get('ResourceRecords', [])]
             alias_target = record.get('AliasTarget', {})
-            record_info = {
-                'Name': record['Name'],
-                'Type': record['Type'],
+                        
+                        route53_data.append({
+                            'HostedZoneId': zone_id,
+                            'HostedZoneName': zone_name,
+                            'Name': record.get('Name', 'N/A'),
+                            'Type': record.get('Type', 'N/A'),
                 'TTL': record.get('TTL', 'N/A'),
-                'RoutingPolicy': record.get('RoutingPolicy', 'N/A'),
                 'Values': ', '.join(record_values) if record_values else 'N/A',
                 'AliasDNSName': alias_target.get('DNSName', 'N/A'),
                 'AliasHostedZoneId': alias_target.get('HostedZoneId', 'N/A')
-            }
-            records_info.append(record_info)
-    return records_info
-
-def get_route53_asset_info():
-    """Route 53 호스티드 존 및 해당 레코드 세트 정보를 수집합니다."""
-    zones_info = get_hosted_zones()
-    route53_data = []
-    for zone_id, zone_name in zones_info:
-        records = get_records_by_zone(zone_id)
-        for record in records:
-            record['HostedZoneId'] = zone_id
-            record['HostedZoneName'] = zone_name
-            route53_data.append(record)
+                        })
+            
+            logger.info(f"Route 53 레코드 {len(route53_data)}개 수집 완료")
     return route53_data
 
-# RDS 자산 정보 수집 함수
-def get_rds_instances():
-    """모든 RDS 인스턴스의 정보를 가져옵니다."""
-    instances = rds_client.describe_db_instances()['DBInstances']
-    rds_info = []
-    for instance in instances:
-        rds_info.append({
-            'DBInstanceIdentifier': instance['DBInstanceIdentifier'],
-            'DBInstanceClass': instance['DBInstanceClass'],
-            'Engine': instance['Engine'],
-            'EngineVersion': instance['EngineVersion'],
-            'AvailabilityZone': instance['AvailabilityZone'],
-            'DBInstanceStatus': instance['DBInstanceStatus'],
-            'Endpoint': instance.get('Endpoint', {}).get('Address', 'N/A')
-        })
-    return rds_info
-
-# CloudFront 자산 정보 수집 함수
-def get_cloudfront_distributions():
-    """모든 CloudFront 배포 정보를 가져옵니다."""
-    distributions = cloudfront_client.list_distributions().get('DistributionList', {}).get('Items', [])
-    cloudfront_info = []
+        except ClientError as e:
+            logger.error(f"Route 53 레코드 수집 실패: {e}")
+            raise AssetCollectionError(f"Route 53 레코드 수집 실패: {e}")
+    
+    def collect_rds_instances(self) -> List[Dict[str, Any]]:
+        """
+        RDS 인스턴스 정보 수집
+        
+        Returns:
+            RDS 인스턴스 정보 딕셔너리 리스트
+        """
+        logger.info("RDS 인스턴스 정보 수집 중...")
+        rds_client = self.clients.get_client('rds')
+        rds_data = []
+        
+        try:
+            instances = rds_client.describe_db_instances()
+            
+            for instance in instances.get('DBInstances', []):
+                endpoint = instance.get('Endpoint', {})
+                rds_data.append({
+                    'DBInstanceIdentifier': instance.get('DBInstanceIdentifier', 'N/A'),
+                    'DBInstanceClass': instance.get('DBInstanceClass', 'N/A'),
+                    'Engine': instance.get('Engine', 'N/A'),
+                    'EngineVersion': instance.get('EngineVersion', 'N/A'),
+                    'AvailabilityZone': instance.get('AvailabilityZone', 'N/A'),
+                    'DBInstanceStatus': instance.get('DBInstanceStatus', 'N/A'),
+                    'Endpoint': endpoint.get('Address', 'N/A')
+                })
+            
+            logger.info(f"RDS 인스턴스 {len(rds_data)}개 수집 완료")
+            return rds_data
+        
+        except ClientError as e:
+            logger.error(f"RDS 인스턴스 수집 실패: {e}")
+            raise AssetCollectionError(f"RDS 인스턴스 수집 실패: {e}")
+    
+    def collect_cloudfront_distributions(self) -> List[Dict[str, Any]]:
+        """
+        CloudFront 배포 정보 수집
+        
+        Returns:
+            CloudFront 배포 정보 딕셔너리 리스트
+        """
+        logger.info("CloudFront 배포 정보 수집 중...")
+        cloudfront_client = self.clients.get_client('cloudfront')
+        cloudfront_data = []
+        
+        try:
+            response = cloudfront_client.list_distributions()
+            distributions = response.get('DistributionList', {}).get('Items', [])
+            
     for dist in distributions:
-        cloudfront_info.append({
-            'Id': dist['Id'],
-            'DomainName': dist['DomainName'],
-            'Status': dist['Status'],
-            'Enabled': dist['Enabled'],
-            'OriginDomainName': dist['Origins']['Items'][0]['DomainName'],
-            'Comment': dist['Comment']
-        })
-    return cloudfront_info
+                origins = dist.get('Origins', {}).get('Items', [])
+                origin_domain = origins[0].get('DomainName', 'N/A') if origins else 'N/A'
+                
+                cloudfront_data.append({
+                    'Id': dist.get('Id', 'N/A'),
+                    'DomainName': dist.get('DomainName', 'N/A'),
+                    'Status': dist.get('Status', 'N/A'),
+                    'Enabled': dist.get('Enabled', False),
+                    'OriginDomainName': origin_domain,
+                    'Comment': dist.get('Comment', 'N/A')
+                })
+            
+            logger.info(f"CloudFront 배포 {len(cloudfront_data)}개 수집 완료")
+            return cloudfront_data
+        
+        except ClientError as e:
+            logger.error(f"CloudFront 배포 수집 실패: {e}")
+            raise AssetCollectionError(f"CloudFront 배포 수집 실패: {e}")
+    
+    def collect_lambda_functions(self) -> List[Dict[str, Any]]:
+        """
+        Lambda 함수 정보 수집
+        
+        Returns:
+            Lambda 함수 정보 딕셔너리 리스트
+        """
+        logger.info("Lambda 함수 정보 수집 중...")
+        lambda_client = self.clients.get_client('lambda')
+        lambda_data = []
+        
+        try:
+            paginator = lambda_client.get_paginator('list_functions')
+            
+            for page in paginator.paginate():
+                for func in page.get('Functions', []):
+                    lambda_data.append({
+                        'FunctionName': func.get('FunctionName', 'N/A'),
+                        'Runtime': func.get('Runtime', 'N/A'),
+                        'Handler': func.get('Handler', 'N/A'),
+                        'Timeout': func.get('Timeout', 0),
+                        'MemorySize': func.get('MemorySize', 0),
+                        'LastModified': func.get('LastModified', 'N/A').strftime("%Y-%m-%d %H:%M:%S") if func.get('LastModified') else 'N/A'
+                    })
+            
+            logger.info(f"Lambda 함수 {len(lambda_data)}개 수집 완료")
+            return lambda_data
+        
+        except ClientError as e:
+            logger.error(f"Lambda 함수 수집 실패: {e}")
+            raise AssetCollectionError(f"Lambda 함수 수집 실패: {e}")
+    
+    def export_to_excel(self, output_path: str) -> None:
+        """
+        수집한 모든 자산 정보를 Excel 파일로 내보내기
+        
+        Args:
+            output_path: 출력 파일 경로
+        """
+        logger.info("자산 정보 수집 시작...")
+        
+        try:
+            # 자산 정보 수집
+            ec2_data = self.collect_ec2_instances()
+            s3_data = self.collect_s3_buckets()
+            ecr_data = self.collect_ecr_repositories()
+            iam_data = self.collect_iam_roles()
+            route53_data = self.collect_route53_records()
+            rds_data = self.collect_rds_instances()
+            cloudfront_data = self.collect_cloudfront_distributions()
+            lambda_data = self.collect_lambda_functions()
+            
+            # DataFrame 생성
+            dataframes = {
+                'EC2 Instances': pd.DataFrame(
+                    ec2_data,
+                    columns=['HostName', 'Instance ID', 'Spec', 'OS', 'Version',
+                            'Availability Zone', 'Public IP', 'Private IP', 'Usage', 'Status']
+                ),
+                'S3 Buckets': pd.DataFrame(
+                    s3_data,
+                    columns=['BucketName', 'ACL', 'Encryption', 'Logging', 'Policy', 'Public Access Block']
+                ),
+                'ECR Repositories': pd.DataFrame(
+                    ecr_data,
+                    columns=['Repository Name', 'Repository URI', 'Created At',
+                            'Image Scanning', 'Tag Mutability', 'Lifecycle Policy']
+                ),
+                'IAM Roles': pd.DataFrame(
+                    iam_data,
+                    columns=['Role Name', 'Policy Name', 'Policy Type', 'Policy Document']
+                ),
+                'Route53 Records': pd.DataFrame(route53_data),
+                'RDS Instances': pd.DataFrame(rds_data),
+                'CloudFront Distributions': pd.DataFrame(cloudfront_data),
+                'Lambda Functions': pd.DataFrame(lambda_data)
+            }
+            
+            # Excel 파일로 내보내기
+            DataExporter.export_to_excel(dataframes, output_path)
+            logger.info(f"모든 AWS 자산 정보를 '{output_path}' 파일로 내보냈습니다.")
+        
+        except Exception as e:
+            logger.error(f"자산 정보 내보내기 실패: {e}")
+            raise ExportError(f"자산 정보 내보내기 실패: {e}")
 
-# Lambda 자산 정보 수집 함수
-def get_lambda_functions():
-    """모든 Lambda 함수의 정보를 가져옵니다."""
-    functions = lambda_client.list_functions()['Functions']
-    lambda_info = []
-    for func in functions:
-        lambda_info.append({
-            'FunctionName': func['FunctionName'],
-            'Runtime': func['Runtime'],
-            'Handler': func['Handler'],
-            'Timeout': func['Timeout'],
-            'MemorySize': func['MemorySize'],
-            'LastModified': func['LastModified']
-        })
-    return lambda_info
 
-# 자산 수집 실행
-ecr_assets = get_ecr_asset_info()
-route53_assets = get_route53_asset_info()
-rds_assets = get_rds_instances()
-cloudfront_assets = get_cloudfront_distributions()
-lambda_assets = get_lambda_functions()
-
-# 데이터프레임으로 변환
-ec2_df = pd.DataFrame(ec2_data, columns=['HostName', 'Instance ID', 'Spec', 'OS', 'Version', 'Availability Zone', 'Public IP', 'Private IP', 'Usage', 'Status'])
-s3_df = pd.DataFrame(s3_data, columns=['BucketName', 'ACL', 'Encryption', 'Logging', 'Policy', 'Public Access Block'])
-ecr_df = pd.DataFrame(ecr_assets, columns=['Repository Name', 'Repository URI', 'Created At', 'Image Scanning', 'Tag Mutability', 'Lifecycle Policy'])
-iam_df = pd.DataFrame(iam_data, columns=['Role Name', 'Policy Name', 'Policy Type', 'Policy Document'])
-route53_df = pd.DataFrame(route53_assets, columns=['HostedZoneId', 'HostedZoneName', 'Record Name', 'Record Type', 'TTL'])
-rds_df = pd.DataFrame(rds_assets, columns=['DBInstanceIdentifier', 'DBInstanceClass', 'Engine', 'EngineVersion', 'AvailabilityZone', 'DBInstanceStatus', 'Endpoint'])
-cloudfront_df = pd.DataFrame(cloudfront_assets, columns=['Id', 'DomainName', 'Status', 'Enabled', 'OriginDomainName'])
-lambda_df = pd.DataFrame(lambda_assets, columns=['FunctionName', 'Runtime', 'Handler', 'Timeout', 'MemorySize', 'LastModified'])
-
-# XLSX 파일로 변환
-with pd.ExcelWriter('aws_assets_isms_p_v3.xlsx', engine='openpyxl') as writer:
-    ec2_df.to_excel(writer, sheet_name='EC2 Instances', index=False)
-    s3_df.to_excel(writer, sheet_name='S3 Buckets', index=False)
-    ecr_df.to_excel(writer, sheet_name='ECR Repositories', index=False)
-    iam_df.to_excel(writer, sheet_name='IAM Roles', index=False)
-    route53_df.to_excel(writer, sheet_name='Route53 Records', index=False)
-    rds_df.to_excel(writer, sheet_name='RDS Instances', index=False)
-    cloudfront_df.to_excel(writer, sheet_name='CloudFront Distributions', index=False)
-    lambda_df.to_excel(writer, sheet_name='Lambda Functions', index=False)
+def main():
+    """메인 함수"""
+    try:
+        # 설정 로드
+        config = Config.from_env()
+        
+        # 자산 수집기 생성
+        collector = AWSAssetCollector(config)
+        
+        # 출력 파일 경로
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_file = Path(config.output_dir) / f"aws_assets_isms_p_{timestamp}.xlsx"
+        
+        # 자산 정보 수집 및 내보내기
+        collector.export_to_excel(str(output_file))
+        
+        logger.info("작업 완료!")
+    
+    except Exception as e:
+        logger.error(f"오류 발생: {e}", exc_info=True)
+        sys.exit(1)
 
 
-# 작업 완료 메시지 출력
-print("모든 AWS 자산 정보를 'aws_assets_isms_p_v3.xlsx' 파일로 내보냈습니다.")
-
+if __name__ == '__main__':
+    main()

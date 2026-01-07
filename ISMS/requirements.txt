@@ -1,0 +1,32 @@
+# ISMS-P 자산 관리 스크립트 의존성
+
+# AWS SDK
+boto3>=1.28.0
+botocore>=1.31.0
+
+# 데이터 처리
+pandas>=2.0.0
+openpyxl>=3.1.0
+
+# 로깅 및 유틸리티
+python-dateutil>=2.8.0
+
+# Kubernetes (EKS 스크립트용, 선택적)
+kubernetes>=28.0.0
+
+# Google Drive API (ec2_s3_drive.py용, 선택적)
+gspread>=5.12.0
+oauth2client>=4.1.3
+
+# Prowler (ISMS-P 2025 자산 식별 및 위험 관리용)
+prowler>=3.0.0
+
+# Trivy (컨테이너 보안 스캔용, 선택적)
+# trivy는 별도 설치 필요 (brew install trivy 또는 apt-get install trivy)
+
+# 개발 도구 (선택적)
+# pytest>=7.4.0
+# black>=23.0.0
+# mypy>=1.5.0
+# flake8>=6.1.0
+
