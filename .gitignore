@@ -94,6 +94,11 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# AWS CDK template files in node_modules (cause CodeQL parsing errors)
+**/node_modules/aws-cdk/lib/init-templates/**
+**/node_modules/aws-cdk/lib/init-templates/**/*.py
+**/node_modules/aws-cdk/lib/init-templates/**/*.pyc
+
 # Package manager lock files (optional - uncomment if needed)
 # package-lock.json
 # yarn.lock

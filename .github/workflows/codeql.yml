@@ -71,14 +71,20 @@ jobs:
         fi
 
     - name: Clean up node_modules and aws-cdk templates before CodeQL
-      if: matrix.language == 'python' && steps.check_default_setup.outputs.default_setup_enabled != 'true'
+      if: matrix.language == 'python'
       continue-on-error: true
       run: |
         echo "Cleaning up files that cause CodeQL parsing errors..."
         # Remove aws-cdk template files that cause syntax errors
+        # This step runs regardless of default setup status to prevent parsing errors
         find . -path "*/node_modules/aws-cdk/lib/init-templates/**/*.py" -type f -delete 2>/dev/null || true
+        find . -path "*/node_modules/aws-cdk/lib/init-templates/**/*.pyc" -type f -delete 2>/dev/null || true
         find . -path "*/aws-cdk/lib/init-templates/**/*.py" -type f -delete 2>/dev/null || true
-        echo "Cleanup completed"
+        find . -path "*/aws-cdk/lib/init-templates/**/*.pyc" -type f -delete 2>/dev/null || true
+        # Also remove from Bedrock directory specifically
+        find ./Bedrock -path "*/node_modules/aws-cdk/lib/init-templates/**/*.py" -type f -delete 2>/dev/null || true
+        find ./Bedrock -path "*/node_modules/aws-cdk/lib/init-templates/**/*.pyc" -type f -delete 2>/dev/null || true
+        echo "Cleanup completed. Removed aws-cdk template Python files."
 
     - name: Initialize CodeQL
       if: steps.check_default_setup.outputs.default_setup_enabled != 'true' || steps.check_default_setup.outcome == 'failure'
