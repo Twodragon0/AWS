@@ -17,7 +17,7 @@
     "jest": "^29.7.0",
     "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
-    "typescript": "~5.5.4"
+    "typescript": "~5.9.3"
   },
   "dependencies": {
     "@cdklabs/generative-ai-cdk-constructs": "^0.1.312",
